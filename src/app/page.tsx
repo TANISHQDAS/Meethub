@@ -421,7 +421,7 @@ function encodeWAV(samples: Float32Array, sampleRate: number): Blob {
 }
 
 async function extractAudioBlob(file: File): Promise<Blob> {
-  if (file.type.startsWith("audio/") && file.size < 20 * 1024 * 1024) {
+  if (file.size < 25 * 1024 * 1024) {
     return file;
   }
   try {
@@ -712,9 +712,12 @@ export default function MeetHubPage() {
       try {
         const textContent = await file.text();
         setTranscript(textContent);
+        setHasExtracted(false);
+        setExtractedSummary(null);
+        setExtractedSpeakers(null);
+        setCurrentStep(1);
         setStatusMessage({ text: `✓ Parsed "${file.name}"`, ok: true });
-        showToast(`✓ Extracted transcript from ${file.name}`);
-        await handleExtractTasks(textContent);
+        showToast(`✓ Extracted transcript from ${file.name}. Click "Extract & Assign" to generate summary & tickets.`);
       } catch (err) {
         showToast("Error reading file text.");
       } finally {
@@ -747,11 +750,12 @@ export default function MeetHubPage() {
         URL.revokeObjectURL(tempUrl);
       };
 
-      // Extract/downsample audio to 16kHz WAV for ultra-fast, robust Groq transcription
+      // Extract audio or keep original container (under 25MB)
       const audioBlob = await extractAudioBlob(file);
+      const uploadName = audioBlob === file ? file.name : `${cleanTitle}.wav`;
 
       const formData = new FormData();
-      formData.append("file", audioBlob, isVideo ? `${cleanTitle}.wav` : file.name);
+      formData.append("file", audioBlob, uploadName);
 
       const res = await fetch("/api/transcribe", {
         method: "POST",
@@ -764,29 +768,41 @@ export default function MeetHubPage() {
 
         if (extractedText) {
           setTranscript(extractedText);
+          setHasExtracted(false);
+          setExtractedSummary(null);
+          setExtractedSpeakers(null);
+          setCurrentStep(1);
           setStatusMessage({ text: `✓ Transcribed "${file.name}"`, ok: true });
-          showToast(`✓ Transcribed speech from ${file.name}`);
-          await handleExtractTasks(extractedText);
+          showToast(`✓ Transcribed speech from ${file.name}. Click "Extract & Assign" to generate summary & tickets.`);
         } else {
           const fallbackDialogue = `Host: Reviewing uploaded media "${cleanTitle}".\nHost: I need Alex to check the specifications before Friday.\nHost: Sarah, please update the interface and test the integration today.\nHost: I will review the deliverables this afternoon and prepare the release notes.`;
           setTranscript(fallbackDialogue);
+          setHasExtracted(false);
+          setExtractedSummary(null);
+          setExtractedSpeakers(null);
+          setCurrentStep(1);
           setStatusMessage({ text: `✓ Parsed "${file.name}"`, ok: true });
-          showToast(`✓ Generated review from ${file.name}`);
-          await handleExtractTasks(fallbackDialogue);
+          showToast(`✓ Generated dialogue review from ${file.name}`);
         }
       } else {
         const fallbackDialogue = `Host: Reviewing uploaded media "${cleanTitle}".\nHost: I need Alex to check the specifications before Friday.\nHost: Sarah, please update the interface and test the integration today.\nHost: I will review the deliverables this afternoon and prepare the release notes.`;
         setTranscript(fallbackDialogue);
+        setHasExtracted(false);
+        setExtractedSummary(null);
+        setExtractedSpeakers(null);
+        setCurrentStep(1);
         setStatusMessage({ text: `✓ Parsed "${file.name}"`, ok: true });
         showToast(`✓ Extracted dialogue from ${file.name}`);
-        await handleExtractTasks(fallbackDialogue);
       }
     } catch (err) {
       console.error("File processing error:", err);
       const fallbackDialogue = `Host: Reviewing uploaded media "${cleanTitle}".\nHost: I need Alex to check the specifications before Friday.\nHost: Sarah, please update the interface and test the integration today.\nHost: I will review the deliverables this afternoon and prepare the release notes.`;
       setTranscript(fallbackDialogue);
+      setHasExtracted(false);
+      setExtractedSummary(null);
+      setExtractedSpeakers(null);
+      setCurrentStep(1);
       setStatusMessage({ text: `✓ Parsed "${file.name}"`, ok: true });
-      await handleExtractTasks(fallbackDialogue);
     } finally {
       setIsParsingFile(false);
     }
@@ -1826,13 +1842,48 @@ export default function MeetHubPage() {
 
                   {/* Tab 3: Speaker Analytics */}
                   {activeRightTab === "analytics" && (
-                    <div className="arsak-card rounded-2xl p-5 bg-[#E2EFE8] border border-[#8DB8A2] shadow-xs">
-                      <SpeakerStats
-                        speakers={currentMeetingObj.speakers}
-                        sentimentScore={currentMeetingObj.sentimentScore}
-                        engagementScore={currentMeetingObj.engagementScore}
-                      />
-                    </div>
+                    <>
+                      {!hasExtracted || !extractedSpeakers ? (
+                        <div className="arsak-card rounded-2xl p-8 bg-[#E2EFE8] border border-[#8DB8A2] text-center space-y-4">
+                          <div className="w-14 h-14 rounded-2xl bg-[#ECFEFF] border border-[#67E8F9] text-[#0891B2] flex items-center justify-center mx-auto shadow-xs">
+                            <BarChart3 className="w-7 h-7" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <h4 className="font-extrabold text-base text-[#060D17] font-display">
+                              No Speaker Analytics Generated Yet
+                            </h4>
+                            <p className="text-xs text-[#334155] font-medium max-w-xs mx-auto leading-relaxed">
+                              Click <strong>&ldquo;Extract &amp; Assign Action Items →&rdquo;</strong> to calculate individual talk time percentages, vocal sentiment, and engagement metrics from the dialogue.
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleExtractTasks()}
+                            disabled={isExtracting || !transcript.trim()}
+                            className="btn-blue px-5 py-2.5 text-xs font-bold inline-flex items-center gap-2 shadow-xs cursor-pointer"
+                          >
+                            {isExtracting ? (
+                              <>
+                                <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                <span>Analyzing Dialogue…</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3.5 h-3.5 text-current" />
+                                <span>Analyze &amp; Calculate Metrics Now</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="arsak-card rounded-2xl p-5 bg-[#E2EFE8] border border-[#8DB8A2] shadow-xs">
+                          <SpeakerStats
+                            speakers={currentMeetingObj.speakers}
+                            sentimentScore={currentMeetingObj.sentimentScore}
+                            engagementScore={currentMeetingObj.engagementScore}
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
                     </>
                   )}

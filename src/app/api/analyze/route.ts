@@ -27,7 +27,7 @@ User Question: ${question}
 Provide a direct, concise, and helpful answer citing relevant speakers or timestamps if applicable.`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -114,11 +114,11 @@ Output JSON schema:
     let parsed: any = null;
     try {
       const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(1200),
+          signal: AbortSignal.timeout(9000),
           body: JSON.stringify({
             contents: [{ parts: [{ text: analysisPrompt }] }],
             generationConfig: {
