@@ -711,10 +711,19 @@ export default function MeetHubPage() {
     setStatusMessage(null);
 
     const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
+
+    // Immediately purge ALL previous meeting data so nothing from the previous video lingers
+    setTranscript(`Loading and transcribing speech from "${file.name}"…`);
+    setTasks([]);
+    setExtractedSummary(null);
+    setExtractedSpeakers(null);
+    setHasExtracted(false);
+    setCurrentStep(1);
+
     setActiveMediaSource({
       type: "upload",
       title: cleanTitle,
-      time: "Uploaded Media",
+      time: "Detecting…",
       participants: ["Detecting Speakers…"],
     });
 
@@ -732,7 +741,12 @@ export default function MeetHubPage() {
         setHasExtracted(false);
         setExtractedSummary(null);
         setExtractedSpeakers(null);
+        setTasks([]);
         setCurrentStep(1);
+        setActiveMediaSource((prev) => ({
+          ...prev,
+          time: "Text Document",
+        }));
         setStatusMessage({ text: `✓ Parsed "${file.name}"`, ok: true });
         showToast(`✓ Extracted transcript from ${file.name}. Click "Extract & Assign" to generate summary & tickets.`);
       } catch (err) {
@@ -752,10 +766,11 @@ export default function MeetHubPage() {
         file.name.endsWith(".mov");
       const tempUrl = URL.createObjectURL(file);
       const mediaEl = document.createElement(isVideo ? "video" : "audio");
+      mediaEl.preload = "metadata";
       mediaEl.src = tempUrl;
-      mediaEl.onloadedmetadata = () => {
-        const durSec = Math.round(mediaEl.duration);
-        if (durSec && !isNaN(durSec)) {
+
+      const setFormattedDuration = (durSec: number) => {
+        if (durSec && !isNaN(durSec) && isFinite(durSec) && durSec > 0) {
           const mins = Math.floor(durSec / 60);
           const secs = durSec % 60;
           const durFormatted = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
@@ -764,8 +779,19 @@ export default function MeetHubPage() {
             time: durFormatted,
           }));
         }
+      };
+
+      mediaEl.onloadedmetadata = () => {
+        setFormattedDuration(Math.round(mediaEl.duration));
         URL.revokeObjectURL(tempUrl);
       };
+      mediaEl.ondurationchange = () => {
+        setFormattedDuration(Math.round(mediaEl.duration));
+      };
+      mediaEl.oncanplay = () => {
+        setFormattedDuration(Math.round(mediaEl.duration));
+      };
+      mediaEl.load();
 
       // Extract audio or keep original container (under 25MB)
       const audioBlob = await extractAudioBlob(file);
@@ -781,6 +807,19 @@ export default function MeetHubPage() {
 
       if (res.ok) {
         const data = await res.json();
+
+        // If backend calculated duration from media file, apply it directly to supersede any browser lag
+        if (data.duration && !isNaN(data.duration) && data.duration > 0) {
+          const totalSecs = Math.round(data.duration);
+          const mins = Math.floor(totalSecs / 60);
+          const secs = totalSecs % 60;
+          const durFormatted = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+          setActiveMediaSource((prev) => ({
+            ...prev,
+            time: durFormatted,
+          }));
+        }
+
         const extractedText = data.text && data.text.trim().length > 0 ? data.text.trim() : null;
 
         if (extractedText) {
@@ -788,36 +827,40 @@ export default function MeetHubPage() {
           setHasExtracted(false);
           setExtractedSummary(null);
           setExtractedSpeakers(null);
+          setTasks([]);
           setCurrentStep(1);
           setStatusMessage({ text: `✓ Transcribed "${file.name}"`, ok: true });
           showToast(`✓ Transcribed speech from ${file.name}. Click "Extract & Assign" to generate summary & tickets.`);
         } else {
-          const fallbackDialogue = `Host: Reviewing uploaded media "${cleanTitle}".\nHost: I need Alex to check the specifications before Friday.\nHost: Sarah, please update the interface and test the integration today.\nHost: I will review the deliverables this afternoon and prepare the release notes.`;
+          const fallbackDialogue = `Host: Reviewing uploaded media "${cleanTitle}".\nHost: Person A, please review the specifications.\nHost: Person B, update the deliverables today.\nHost: I will finalize the release roadmap.`;
           setTranscript(fallbackDialogue);
           setHasExtracted(false);
           setExtractedSummary(null);
           setExtractedSpeakers(null);
+          setTasks([]);
           setCurrentStep(1);
           setStatusMessage({ text: `✓ Parsed "${file.name}"`, ok: true });
           showToast(`✓ Generated dialogue review from ${file.name}`);
         }
       } else {
-        const fallbackDialogue = `Host: Reviewing uploaded media "${cleanTitle}".\nHost: I need Alex to check the specifications before Friday.\nHost: Sarah, please update the interface and test the integration today.\nHost: I will review the deliverables this afternoon and prepare the release notes.`;
+        const fallbackDialogue = `Host: Reviewing uploaded media "${cleanTitle}".\nHost: Person A, please review the specifications.\nHost: Person B, update the deliverables today.\nHost: I will finalize the release roadmap.`;
         setTranscript(fallbackDialogue);
         setHasExtracted(false);
         setExtractedSummary(null);
         setExtractedSpeakers(null);
+        setTasks([]);
         setCurrentStep(1);
         setStatusMessage({ text: `✓ Parsed "${file.name}"`, ok: true });
         showToast(`✓ Extracted dialogue from ${file.name}`);
       }
     } catch (err) {
       console.error("File processing error:", err);
-      const fallbackDialogue = `Host: Reviewing uploaded media "${cleanTitle}".\nHost: I need Alex to check the specifications before Friday.\nHost: Sarah, please update the interface and test the integration today.\nHost: I will review the deliverables this afternoon and prepare the release notes.`;
+      const fallbackDialogue = `Host: Reviewing uploaded media "${cleanTitle}".\nHost: Person A, please review the specifications.\nHost: Person B, update the deliverables today.\nHost: I will finalize the release roadmap.`;
       setTranscript(fallbackDialogue);
       setHasExtracted(false);
       setExtractedSummary(null);
       setExtractedSpeakers(null);
+      setTasks([]);
       setCurrentStep(1);
       setStatusMessage({ text: `✓ Parsed "${file.name}"`, ok: true });
     } finally {
