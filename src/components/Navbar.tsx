@@ -43,9 +43,6 @@ export default function Navbar({ onOpenRecorder }: NavbarProps) {
           <a href="/#faq" className="hover:text-[#22D3EE] transition-colors">
             FAQ
           </a>
-          <Link href="/dashboard" className="text-[#38BDF8] hover:text-[#22D3EE] transition-colors">
-            Workspace
-          </Link>
         </nav>
 
         {/* Action Buttons */}

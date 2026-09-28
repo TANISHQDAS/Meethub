@@ -29,11 +29,13 @@ import {
   Trash2,
   Plus,
   Save,
+  BarChart3,
 } from "lucide-react";
 import FluidWaveBackground from "@/components/FluidWaveBackground";
 import BrowserRecorderModal from "@/components/BrowserRecorderModal";
 import EmailRecapModal from "@/components/EmailRecapModal";
 import AskAIModal from "@/components/AskAIModal";
+import SpeakerStats from "@/components/SpeakerStats";
 import { SAMPLE_MEETINGS } from "@/lib/sampleData";
 import { Meeting } from "@/types";
 import { downloadExecutiveAuditPdf } from "@/lib/pdfGenerator";
@@ -356,6 +358,9 @@ export default function MeetHubPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isAskModalOpen, setIsAskModalOpen] = useState(false);
 
+  // Tab state for right column in Interactive Pipeline
+  const [activeRightTab, setActiveRightTab] = useState<"summary" | "tickets" | "analytics">("summary");
+
   // Inline task editing state
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<TaskItem>>({});
@@ -370,15 +375,17 @@ export default function MeetHubPage() {
     sentimentScore: 92,
     engagementScore: 89,
     summary: {
-      tldr: `Executive Sync & Action Plan for ${currentPreset.title}. Key delivery milestones approved and task owners assigned.`,
+      tldr: "The team finalized the Q4 roadmap priorities, approving the real-time AI transcription integration, migrating to automated action-item tracking, and establishing a December 15th release cutoff.",
       keyPoints: [
-        "Team aligned on immediate delivery milestones and technical constraints.",
-        "Commitments identified and synced to Linear issue tracker.",
-        "Verified token encryption across API endpoints and audit readiness.",
+        "Approved Groq Whisper-large-v3 integration for low-latency live captions.",
+        "Allocated 2 weeks for the Web Audio mixer to support dual microphone and browser tab audio capture.",
+        "Agreed to introduce sentiment and engagement scoring directly into the participant meeting recap email.",
+        "Confirmed privacy-first architecture with end-to-end meeting recording storage.",
       ],
       decisions: [
-        "Sprint priority locked and validated.",
-        "Deployment checks automated to reduce verification lag.",
+        "Target December 15 for the public beta launch.",
+        "Use Google Gemini 1.5 Flash as the default high-throughput summarizer.",
+        "Implement one-click Gmail SMTP recap dispatcher for post-call summaries.",
       ],
     },
     chapters: [
@@ -480,6 +487,7 @@ export default function MeetHubPage() {
     } finally {
       setIsExtracting(false);
       setHasExtracted(true);
+      setActiveRightTab("tickets");
       setCurrentStep(2);
     }
   };
@@ -661,9 +669,6 @@ export default function MeetHubPage() {
             <a href="#faq" className="hover:text-[#2563EB] transition-colors">
               FAQ
             </a>
-            <Link href="/dashboard" className="text-[#2563EB] hover:text-[#1D4ED8] transition-colors font-extrabold">
-              Workspace
-            </Link>
           </nav>
 
           <div className="flex items-center gap-2.5">
@@ -733,13 +738,13 @@ export default function MeetHubPage() {
                   <span>Record Meeting</span>
                 </button>
 
-                <Link
-                  href="/dashboard"
+                <a
+                  href="#pipeline"
                   className="btn-secondary-blue px-6 py-3.5 text-sm sm:text-base font-bold flex items-center gap-2"
                 >
                   <SquareCheckBig className="w-4 h-4 text-[#2563EB]" />
-                  <span>Open Workspace</span>
-                </Link>
+                  <span>Explore Pipeline</span>
+                </a>
 
                 <button
                   onClick={() => setIsModalOpen(true)}
@@ -1033,301 +1038,423 @@ export default function MeetHubPage() {
                   </button>
                 </div>
 
-                {/* Right: Detected Action Items & Linear Sync (5 cols) */}
+                {/* Right: Tabbed Pipeline Interface (Summary | Linear Tickets | Analytics) */}
                 <div className="lg:col-span-5 p-6 sm:p-8 bg-[#D9EAE1] space-y-5">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#8DB8A2]">
-                    <div>
-                      <h3 className="font-extrabold text-base text-[#060D17] flex items-center gap-2 font-display">
-                        <SquareCheckBig className="w-4 h-4 text-[#2563EB]" />
-                        <span>Detected Action Items</span>
-                        {hasExtracted && (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white text-[#1E293B] border border-[#CBD5E1]">
-                            {tasks.length}
-                          </span>
-                        )}
-                      </h3>
-                      <p className="text-xs text-[#1E293B] font-medium">
-                        {hasExtracted
-                          ? "Ready to sync directly with your Linear backlog"
-                          : "Extract commitments to view action items"}
-                      </p>
-                    </div>
+                  {/* Top Tabs Bar (Summary | Linear Tickets | Analytics) */}
+                  <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-[#C6DFD2] border border-[#8DB8A2] shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setActiveRightTab("summary")}
+                      className={`flex-1 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        activeRightTab === "summary"
+                          ? "bg-[#2563EB] text-white shadow-xs"
+                          : "text-[#1E293B] hover:text-[#060D17] hover:bg-white/40"
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Summary</span>
+                    </button>
 
-                    {hasExtracted && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleAddNewTask}
-                          className="btn-secondary-blue px-2.5 py-1 text-xs font-bold flex items-center gap-1 shadow-2xs"
-                          title="Manually add an action item"
-                        >
-                          <Plus className="w-3.5 h-3.5 text-current" />
-                          <span>Add Task</span>
-                        </button>
-                        {pendingCount > 0 && (
-                          <button
-                            onClick={handlePushAllToLinear}
-                            className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1.5"
-                          >
-                            <Zap className="w-3.5 h-3.5 text-current" />
-                            <span>Push All ({pendingCount})</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveRightTab("tickets")}
+                      className={`flex-1 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        activeRightTab === "tickets"
+                          ? "bg-[#2563EB] text-white shadow-xs"
+                          : "text-[#1E293B] hover:text-[#060D17] hover:bg-white/40"
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>Linear Tickets ({tasks.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveRightTab("analytics")}
+                      className={`flex-1 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        activeRightTab === "analytics"
+                          ? "bg-[#2563EB] text-white shadow-xs"
+                          : "text-[#1E293B] hover:text-[#060D17] hover:bg-white/40"
+                      }`}
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      <span>Analytics</span>
+                    </button>
                   </div>
 
-                  {!hasExtracted ? (
-                    <div className="arsak-card rounded-2xl p-8 bg-[#E2EFE8] border border-[#8DB8A2] text-center space-y-4">
-                      <div className="w-14 h-14 rounded-2xl bg-[#ECFEFF] border border-[#67E8F9] text-[#0891B2] flex items-center justify-center mx-auto shadow-xs">
-                        <Sparkles className="w-7 h-7" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <h4 className="font-extrabold text-base text-[#060D17] font-display">
-                          No Action Items Extracted Yet
+                  {/* Tab 1: Executive Summary */}
+                  {activeRightTab === "summary" && (
+                    <div className="arsak-card rounded-2xl p-6 bg-[#E2EFE8] border border-[#8DB8A2] space-y-5 shadow-xs">
+                      {/* EXECUTIVE TL;DR */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-black tracking-wider uppercase text-[#0E7490] font-display">
+                          EXECUTIVE TL;DR
                         </h4>
-                        <p className="text-xs text-[#334155] font-medium max-w-xs mx-auto leading-relaxed">
-                          Click <strong>&ldquo;Extract &amp; Assign Action Items →&rdquo;</strong> to analyze the meeting dialogue, assign owners, and generate Linear tickets.
-                        </p>
+                        <div className="rounded-xl p-4 bg-[#F4FAF6] border border-[#8DB8A2]/70 text-xs sm:text-sm font-semibold text-[#060D17] leading-relaxed shadow-2xs">
+                          {currentMeetingObj.summary.tldr}
+                        </div>
                       </div>
-                      <button
-                        onClick={handleExtractTasks}
-                        disabled={isExtracting || !transcript.trim()}
-                        className="btn-blue px-5 py-2.5 text-xs font-bold inline-flex items-center gap-2 shadow-xs"
-                      >
-                        {isExtracting ? (
-                          <>
-                            <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                            <span>Extracting…</span>
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-3.5 h-3.5 text-current" />
-                            <span>Extract &amp; Assign Now</span>
-                          </>
-                        )}
-                      </button>
+
+                      {/* KEY TAKEAWAYS */}
+                      <div className="space-y-2.5">
+                        <h4 className="text-xs font-black tracking-wider uppercase text-[#0284C7] font-display">
+                          KEY TAKEAWAYS
+                        </h4>
+                        <ul className="space-y-2">
+                          {currentMeetingObj.summary.keyPoints.map((point, idx) => (
+                            <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold text-[#1E293B] leading-snug">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#0284C7] mt-1.5 shrink-0" />
+                              <span>{point}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* DECISIONS MADE */}
+                      <div className="space-y-2.5">
+                        <h4 className="text-xs font-black tracking-wider uppercase text-[#0F766E] font-display">
+                          DECISIONS MADE
+                        </h4>
+                        <ul className="space-y-2">
+                          {currentMeetingObj.summary.decisions.map((decision, idx) => (
+                            <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold text-[#1E293B] leading-snug">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#0F766E] mt-1.5 shrink-0" />
+                              <span>{decision}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="pt-3 flex items-center justify-between border-t border-[#8DB8A2]/60">
+                        <button
+                          type="button"
+                          onClick={() => setActiveRightTab("tickets")}
+                          className="btn-blue px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-1.5"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>View Linear Tickets ({tasks.length})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleExportPdf}
+                          className="btn-secondary-blue px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-1.5"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-current" />
+                          <span>Export PDF</span>
+                        </button>
+                      </div>
                     </div>
-                  ) : (
-                    <>
-                      <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-                        {tasks.map((task) => {
-                          const isCreated = task.status === "created";
-                          const isEditing = editingTaskId === task.id;
+                  )}
 
-                          let priorityClass = "bg-[#2563EB] text-white border border-[#1D4ED8] font-bold";
-                          if (task.priority === "Urgent") {
-                            priorityClass = "bg-red-600 text-white font-bold border border-red-700";
-                          } else if (task.priority === "High") {
-                            priorityClass = "bg-amber-600 text-white font-bold border border-amber-700";
-                          }
+                  {/* Tab 2: Linear Tickets */}
+                  {activeRightTab === "tickets" && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#8DB8A2]">
+                        <div>
+                          <h3 className="font-extrabold text-base text-[#060D17] flex items-center gap-2 font-display">
+                            <SquareCheckBig className="w-4 h-4 text-[#2563EB]" />
+                            <span>Detected Action Items</span>
+                            {hasExtracted && (
+                              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white text-[#1E293B] border border-[#CBD5E1]">
+                                {tasks.length}
+                              </span>
+                            )}
+                          </h3>
+                          <p className="text-xs text-[#1E293B] font-medium">
+                            {hasExtracted
+                              ? "Ready to sync directly with your Linear backlog"
+                              : "Extract commitments to view action items"}
+                          </p>
+                        </div>
 
-                          return (
-                            <div key={task.id} className="arsak-card rounded-xl overflow-hidden shadow-xs">
-                              <div className="arsak-glaze" />
-                              <div className="arsak-shelf" />
-
-                              <div className="arsak-recessed px-3.5 py-2 flex items-center justify-between gap-2">
-                                <span className={`text-[11px] px-2 py-0.5 rounded-md border ${priorityClass}`}>
-                                  {task.priority}
-                                </span>
-                                <span className="text-[11px] font-bold text-[#334155] bg-white px-2 py-0.5 rounded-md border border-[#CBD5E1]">
-                                  {task.category}
-                                </span>
-                              </div>
-
-                              <div className="p-3.5 bg-[#EAF4EE] space-y-2">
-                                {isEditing ? (
-                                  /* Inline Edit Mode */
-                                  <div className="space-y-2">
-                                    <div>
-                                      <label className="text-[10px] font-bold text-[#475569] uppercase">Task Description</label>
-                                      <textarea
-                                        value={editFormData.task || ""}
-                                        onChange={(e) =>
-                                          setEditFormData((prev) => ({ ...prev, task: e.target.value }))
-                                        }
-                                        rows={2}
-                                        className="w-full text-xs font-bold text-[#060D17] p-2 rounded-lg bg-white border border-[#8DB8A2] focus:outline-none focus:border-[#2563EB]"
-                                      />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                      <div>
-                                        <label className="text-[10px] font-bold text-[#475569] uppercase">Assigned By (From)</label>
-                                        <input
-                                          type="text"
-                                          value={editFormData.assignedBy || ""}
-                                          onChange={(e) =>
-                                            setEditFormData((prev) => ({ ...prev, assignedBy: e.target.value }))
-                                          }
-                                          className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="text-[10px] font-bold text-[#475569] uppercase">Assignee (To)</label>
-                                        <input
-                                          type="text"
-                                          value={editFormData.owner || ""}
-                                          onChange={(e) =>
-                                            setEditFormData((prev) => ({ ...prev, owner: e.target.value }))
-                                          }
-                                          className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                      <div>
-                                        <label className="text-[10px] font-bold text-[#475569] uppercase">Priority</label>
-                                        <select
-                                          value={editFormData.priority || "Medium"}
-                                          onChange={(e) =>
-                                            setEditFormData((prev) => ({
-                                              ...prev,
-                                              priority: e.target.value as "Urgent" | "High" | "Medium",
-                                            }))
-                                          }
-                                          className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
-                                        >
-                                          <option value="Urgent">Urgent</option>
-                                          <option value="High">High</option>
-                                          <option value="Medium">Medium</option>
-                                        </select>
-                                      </div>
-                                      <div>
-                                        <label className="text-[10px] font-bold text-[#475569] uppercase">Due Date</label>
-                                        <input
-                                          type="date"
-                                          value={editFormData.dueDate || "2026-09-18"}
-                                          onChange={(e) =>
-                                            setEditFormData((prev) => ({ ...prev, dueDate: e.target.value }))
-                                          }
-                                          className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-end gap-1.5 pt-1">
-                                      <button
-                                        type="button"
-                                        onClick={handleCancelEdit}
-                                        className="btn-secondary-blue px-2.5 py-1 text-xs font-bold"
-                                      >
-                                        Cancel
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSaveEdit(task.id)}
-                                        className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1"
-                                      >
-                                        <Save className="w-3 h-3" />
-                                        <span>Save</span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  /* Normal View Mode */
-                                  <>
-                                    <div className="flex items-start justify-between gap-2">
-                                      <p className="text-xs font-bold text-[#060D17] leading-snug">
-                                        {task.task}
-                                      </p>
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        <button
-                                          type="button"
-                                          onClick={() => copyTaskDetails(task)}
-                                          title="Copy assignment: who gave work to whom and what work"
-                                          className="p-1 rounded-md text-[#475569] hover:text-[#2563EB] hover:bg-white/80 transition-colors cursor-pointer"
-                                        >
-                                          <Copy className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleStartEdit(task)}
-                                          title="Edit task title, owner, or priority"
-                                          className="p-1 rounded-md text-[#475569] hover:text-[#2563EB] hover:bg-white/80 transition-colors cursor-pointer"
-                                        >
-                                          <Edit3 className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteTask(task.id, task.task)}
-                                          title="Discard accidental work or joke"
-                                          className="p-1 rounded-md text-[#475569] hover:text-red-600 hover:bg-white/80 transition-colors cursor-pointer"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 text-[11px] font-semibold text-[#334155] bg-white/70 px-2.5 py-1 rounded-lg border border-[#CBD5E1]/60">
-                                      <span>
-                                        <strong className="text-[#060D17]">From:</strong> {task.assignedBy || currentPreset.participants[0] || "Lead"}
-                                      </span>
-                                      <span className="text-[#94A3B8]">→</span>
-                                      <span>
-                                        <strong className="text-[#2563EB]">To:</strong> {task.owner}
-                                      </span>
-                                    </div>
-
-                                    <div className="flex items-center justify-between pt-1 text-xs text-[#1E293B]">
-                                      <div className="flex items-center gap-3">
-                                        <span className="flex items-center gap-1 font-bold text-[#060D17]">
-                                          <User className="w-3.5 h-3.5 text-[#2563EB]" />
-                                          {task.owner}
-                                        </span>
-                                        <span className="flex items-center gap-1 font-medium text-[#334155]">
-                                          <Calendar className="w-3 h-3 text-[#2563EB]" />
-                                          {task.dueDate}
-                                        </span>
-                                      </div>
-
-                                      {task.status === "pending" && (
-                                        <button
-                                          onClick={() => handleCreateTicket(task.id, task.owner)}
-                                          className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1"
-                                        >
-                                          <ArrowRight className="w-3 h-3 text-current" />
-                                          <span>Sync</span>
-                                        </button>
-                                      )}
-
-                                      {isCreated && (
-                                        <button
-                                          type="button"
-                                          onClick={() => copyTaskDetails(task)}
-                                          title="Click to copy assignment details & ticket ID"
-                                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-extrabold text-xs flex items-center gap-1.5 border border-emerald-700 shadow-sm transition-colors cursor-pointer"
-                                        >
-                                          <Check className="w-3.5 h-3.5 text-white" />
-                                          <span>{task.ticketId}</span>
-                                        </button>
-                                      )}
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                        {hasExtracted && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={handleAddNewTask}
+                              className="btn-secondary-blue px-2.5 py-1 text-xs font-bold flex items-center gap-1 shadow-2xs"
+                              title="Manually add an action item"
+                            >
+                              <Plus className="w-3.5 h-3.5 text-current" />
+                              <span>Add Task</span>
+                            </button>
+                            {pendingCount > 0 && (
+                              <button
+                                onClick={handlePushAllToLinear}
+                                className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1.5"
+                              >
+                                <Zap className="w-3.5 h-3.5 text-current" />
+                                <span>Push All ({pendingCount})</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      {createdCount > 0 && (
-                        <div className="p-3.5 rounded-xl bg-[#EAF4EE] border border-emerald-400 text-xs text-[#060D17] flex items-center justify-between shadow-sm">
-                          <span className="font-extrabold flex items-center gap-1.5">
-                            <Check className="w-4 h-4 text-emerald-600" />
-                            Linear Sync Complete: {createdCount} of {tasks.length} tickets synchronized
-                          </span>
+                      {!hasExtracted ? (
+                        <div className="arsak-card rounded-2xl p-8 bg-[#E2EFE8] border border-[#8DB8A2] text-center space-y-4">
+                          <div className="w-14 h-14 rounded-2xl bg-[#ECFEFF] border border-[#67E8F9] text-[#0891B2] flex items-center justify-center mx-auto shadow-xs">
+                            <Sparkles className="w-7 h-7" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <h4 className="font-extrabold text-base text-[#060D17] font-display">
+                              No Action Items Extracted Yet
+                            </h4>
+                            <p className="text-xs text-[#334155] font-medium max-w-xs mx-auto leading-relaxed">
+                              Click <strong>&ldquo;Extract &amp; Assign Action Items →&rdquo;</strong> to analyze the meeting dialogue, assign owners, and generate Linear tickets.
+                            </p>
+                          </div>
                           <button
-                            onClick={handleExportPdf}
-                            className="text-[#0891B2] font-extrabold hover:underline inline-flex items-center gap-1"
+                            onClick={handleExtractTasks}
+                            disabled={isExtracting || !transcript.trim()}
+                            className="btn-blue px-5 py-2.5 text-xs font-bold inline-flex items-center gap-2 shadow-xs"
                           >
-                            <span>Download Executive Audit</span>
-                            <ArrowRight className="w-3 h-3 text-current" />
+                            {isExtracting ? (
+                              <>
+                                <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                <span>Extracting…</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3.5 h-3.5 text-current" />
+                                <span>Extract &amp; Assign Now</span>
+                              </>
+                            )}
                           </button>
                         </div>
+                      ) : (
+                        <>
+                          <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                            {tasks.map((task) => {
+                              const isCreated = task.status === "created";
+                              const isEditing = editingTaskId === task.id;
+
+                              let priorityClass = "bg-[#2563EB] text-white border border-[#1D4ED8] font-bold";
+                              if (task.priority === "Urgent") {
+                                priorityClass = "bg-red-600 text-white font-bold border border-red-700";
+                              } else if (task.priority === "High") {
+                                priorityClass = "bg-amber-600 text-white font-bold border border-amber-700";
+                              }
+
+                              return (
+                                <div key={task.id} className="arsak-card rounded-xl overflow-hidden shadow-xs">
+                                  <div className="arsak-glaze" />
+                                  <div className="arsak-shelf" />
+
+                                  <div className="arsak-recessed px-3.5 py-2 flex items-center justify-between gap-2">
+                                    <span className={`text-[11px] px-2 py-0.5 rounded-md border ${priorityClass}`}>
+                                      {task.priority}
+                                    </span>
+                                    <span className="text-[11px] font-bold text-[#334155] bg-white px-2 py-0.5 rounded-md border border-[#CBD5E1]">
+                                      {task.category}
+                                    </span>
+                                  </div>
+
+                                  <div className="p-3.5 bg-[#EAF4EE] space-y-2">
+                                    {isEditing ? (
+                                      /* Inline Edit Mode */
+                                      <div className="space-y-2">
+                                        <div>
+                                          <label className="text-[10px] font-bold text-[#475569] uppercase">Task Description</label>
+                                          <textarea
+                                            value={editFormData.task || ""}
+                                            onChange={(e) =>
+                                              setEditFormData((prev) => ({ ...prev, task: e.target.value }))
+                                            }
+                                            rows={2}
+                                            className="w-full text-xs font-bold text-[#060D17] p-2 rounded-lg bg-white border border-[#8DB8A2] focus:outline-none focus:border-[#2563EB]"
+                                          />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                          <div>
+                                            <label className="text-[10px] font-bold text-[#475569] uppercase">Assigned By (From)</label>
+                                            <input
+                                              type="text"
+                                              value={editFormData.assignedBy || ""}
+                                              onChange={(e) =>
+                                                setEditFormData((prev) => ({ ...prev, assignedBy: e.target.value }))
+                                              }
+                                              className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="text-[10px] font-bold text-[#475569] uppercase">Assignee (To)</label>
+                                            <input
+                                              type="text"
+                                              value={editFormData.owner || ""}
+                                              onChange={(e) =>
+                                                setEditFormData((prev) => ({ ...prev, owner: e.target.value }))
+                                              }
+                                              className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                          <div>
+                                            <label className="text-[10px] font-bold text-[#475569] uppercase">Priority</label>
+                                            <select
+                                              value={editFormData.priority || "Medium"}
+                                              onChange={(e) =>
+                                                setEditFormData((prev) => ({
+                                                  ...prev,
+                                                  priority: e.target.value as "Urgent" | "High" | "Medium",
+                                                }))
+                                              }
+                                              className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
+                                            >
+                                              <option value="Urgent">Urgent</option>
+                                              <option value="High">High</option>
+                                              <option value="Medium">Medium</option>
+                                            </select>
+                                          </div>
+                                          <div>
+                                            <label className="text-[10px] font-bold text-[#475569] uppercase">Due Date</label>
+                                            <input
+                                              type="date"
+                                              value={editFormData.dueDate || "2026-09-18"}
+                                              onChange={(e) =>
+                                                setEditFormData((prev) => ({ ...prev, dueDate: e.target.value }))
+                                              }
+                                              className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-end gap-1.5 pt-1">
+                                          <button
+                                            type="button"
+                                            onClick={handleCancelEdit}
+                                            className="btn-secondary-blue px-2.5 py-1 text-xs font-bold"
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSaveEdit(task.id)}
+                                            className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1"
+                                          >
+                                            <Save className="w-3 h-3" />
+                                            <span>Save</span>
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      /* Normal View Mode */
+                                      <>
+                                        <div className="flex items-start justify-between gap-2">
+                                          <p className="text-xs font-bold text-[#060D17] leading-snug">
+                                            {task.task}
+                                          </p>
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => copyTaskDetails(task)}
+                                              title="Copy assignment: who gave work to whom and what work"
+                                              className="p-1 rounded-md text-[#475569] hover:text-[#2563EB] hover:bg-white/80 transition-colors cursor-pointer"
+                                            >
+                                              <Copy className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleStartEdit(task)}
+                                              title="Edit task title, owner, or priority"
+                                              className="p-1 rounded-md text-[#475569] hover:text-[#2563EB] hover:bg-white/80 transition-colors cursor-pointer"
+                                            >
+                                              <Edit3 className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteTask(task.id, task.task)}
+                                              title="Discard accidental work or joke"
+                                              className="p-1 rounded-md text-[#475569] hover:text-red-600 hover:bg-white/80 transition-colors cursor-pointer"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 text-[11px] font-semibold text-[#334155] bg-white/70 px-2.5 py-1 rounded-lg border border-[#CBD5E1]/60">
+                                          <span>
+                                            <strong className="text-[#060D17]">From:</strong> {task.assignedBy || currentPreset.participants[0] || "Lead"}
+                                          </span>
+                                          <span className="text-[#94A3B8]">→</span>
+                                          <span>
+                                            <strong className="text-[#2563EB]">To:</strong> {task.owner}
+                                          </span>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-1 text-xs text-[#1E293B]">
+                                          <div className="flex items-center gap-3">
+                                            <span className="flex items-center gap-1 font-bold text-[#060D17]">
+                                              <User className="w-3.5 h-3.5 text-[#2563EB]" />
+                                              {task.owner}
+                                            </span>
+                                            <span className="flex items-center gap-1 font-medium text-[#334155]">
+                                              <Calendar className="w-3 h-3 text-[#2563EB]" />
+                                              {task.dueDate}
+                                            </span>
+                                          </div>
+
+                                          {task.status === "pending" && (
+                                            <button
+                                              onClick={() => handleCreateTicket(task.id, task.owner)}
+                                              className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1"
+                                            >
+                                              <ArrowRight className="w-3 h-3 text-current" />
+                                              <span>Sync</span>
+                                            </button>
+                                          )}
+
+                                          {isCreated && (
+                                            <button
+                                              type="button"
+                                              onClick={() => copyTaskDetails(task)}
+                                              title="Click to copy assignment details & ticket ID"
+                                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-extrabold text-xs flex items-center gap-1.5 border border-emerald-700 shadow-sm transition-colors cursor-pointer"
+                                            >
+                                              <Check className="w-3.5 h-3.5 text-white" />
+                                              <span>{task.ticketId}</span>
+                                            </button>
+                                          )}
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {createdCount > 0 && (
+                            <div className="p-3.5 rounded-xl bg-[#EAF4EE] border border-emerald-400 text-xs text-[#060D17] flex items-center justify-between shadow-sm">
+                              <span className="font-extrabold flex items-center gap-1.5">
+                                <Check className="w-4 h-4 text-emerald-600" />
+                                Linear Sync Complete: {createdCount} of {tasks.length} tickets synchronized
+                              </span>
+                              <button
+                                onClick={handleExportPdf}
+                                className="text-[#0891B2] font-extrabold hover:underline inline-flex items-center gap-1"
+                              >
+                                <span>Download Executive Audit</span>
+                                <ArrowRight className="w-3 h-3 text-current" />
+                              </button>
+                            </div>
+                          )}
+                        </>
                       )}
-                    </>
+                    </div>
+                  )}
+
+                  {/* Tab 3: Speaker Analytics */}
+                  {activeRightTab === "analytics" && (
+                    <div className="arsak-card rounded-2xl p-5 bg-[#E2EFE8] border border-[#8DB8A2] shadow-xs">
+                      <SpeakerStats
+                        speakers={currentMeetingObj.speakers}
+                        sentimentScore={currentMeetingObj.sentimentScore}
+                        engagementScore={currentMeetingObj.engagementScore}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
@@ -1655,7 +1782,7 @@ export default function MeetHubPage() {
                   }}
                   className="btn-blue px-6 py-2.5 rounded-xl text-xs font-bold"
                 >
-                  Return to Dashboard
+                  Close
                 </button>
               </div>
             ) : (

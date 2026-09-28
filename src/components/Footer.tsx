@@ -29,9 +29,6 @@ export default function Footer() {
             <a href="/#workflow" className="hover:text-[#22D3EE] transition-colors">
               Workflow
             </a>
-            <Link href="/dashboard" className="text-[#38BDF8] hover:text-[#22D3EE] transition-colors font-bold">
-              Workspace Dashboard
-            </Link>
             <Link href="/meeting/meet-q4-product-sync" className="text-emerald-400 hover:text-emerald-300 transition-colors font-bold">
               Audio Sync Demo
             </Link>
