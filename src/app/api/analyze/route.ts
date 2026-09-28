@@ -58,8 +58,14 @@ Provide a direct, concise, and helpful answer citing relevant speakers or timest
     }
 
     // 2. Full Meeting Analysis Mode
-    const analysisPrompt = `You are Vocalis AI, an advanced meeting intelligence copilot similar to Read.ai.
-Analyze the following meeting transcript and return ONLY valid, raw JSON (no backticks, no markdown fence, no other words):
+    const analysisPrompt = `You are MeetHub Intelligence Copilot, an advanced meeting analysis engine.
+Analyze the meeting dialogue transcript with high precision and return ONLY valid, raw JSON (no backticks, no markdown fence, no other words).
+
+CRITICAL TASK EXTRACTION RULES:
+1. MULTIPLE TASKS PER PERSON: A single participant can have multiple distinct deliverables if they committed to multiple items. Create separate items for each.
+2. FILTER CASUAL BANTER & SARCASM: Strictly IGNORE jokes, sarcastic quips, humorous exaggerations, and casual banter (e.g., "haha I'll rewrite the entire backend in Rust by tomorrow", "let's just buy 1000 servers lol"). Only extract real, professional, agreed-upon commitments.
+3. RETRACTIONS & SUPERSEDED TASKS: If an action item was proposed earlier in the dialogue but subsequently revised, rejected, canceled, or postponed during the call (e.g. "actually wait, don't do that", "Dave is already handling it"), ONLY extract the final agreed-upon outcome.
+4. WHO GAVE WORK TO WHOM: Accurately set 'assignedBy' (the speaker who requested or gave the task) and 'assignee' (the person doing the work).
 
 Transcript:
 ${transcriptText}

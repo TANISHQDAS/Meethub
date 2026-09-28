@@ -25,6 +25,10 @@ import {
   Mail,
   ExternalLink,
   Copy,
+  Edit3,
+  Trash2,
+  Plus,
+  Save,
 } from "lucide-react";
 import FluidWaveBackground from "@/components/FluidWaveBackground";
 import BrowserRecorderModal from "@/components/BrowserRecorderModal";
@@ -352,6 +356,10 @@ export default function MeetHubPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isAskModalOpen, setIsAskModalOpen] = useState(false);
 
+  // Inline task editing state
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<Partial<TaskItem>>({});
+
   const currentMeetingObj: Meeting = {
     id: currentPreset.id,
     title: currentPreset.title,
@@ -525,6 +533,52 @@ export default function MeetHubPage() {
     } finally {
       setIsParsingFile(false);
     }
+  };
+
+  const handleStartEdit = (task: TaskItem) => {
+    setEditingTaskId(task.id);
+    setEditFormData({ ...task });
+  };
+
+  const handleSaveEdit = (taskId: string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? ({ ...t, ...editFormData } as TaskItem) : t))
+    );
+    setEditingTaskId(null);
+    setEditFormData({});
+    showToast("✓ Action item updated");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTaskId(null);
+    setEditFormData({});
+  };
+
+  const handleDeleteTask = (taskId: string, taskTitle: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    if (editingTaskId === taskId) {
+      setEditingTaskId(null);
+      setEditFormData({});
+    }
+    showToast(`✓ Discarded task: "${taskTitle.slice(0, 24)}..."`);
+  };
+
+  const handleAddNewTask = () => {
+    const newTask: TaskItem = {
+      id: `task-manual-${Date.now()}`,
+      task: "Follow up on discussion items",
+      owner: currentPreset.participants[1] || "Team Member",
+      assignedBy: currentPreset.participants[0] || "Team Lead",
+      dueDate: "2026-09-18",
+      priority: "Medium",
+      category: "Engineering",
+      status: "pending",
+      ticketId: "",
+    };
+    setTasks((prev) => [newTask, ...prev]);
+    setEditingTaskId(newTask.id);
+    setEditFormData(newTask);
+    showToast("✓ Added new action item (edit details below)");
   };
 
   const handleCreateTicket = (taskId: string, owner: string) => {
@@ -999,14 +1053,26 @@ export default function MeetHubPage() {
                       </p>
                     </div>
 
-                    {hasExtracted && pendingCount > 0 && (
-                      <button
-                        onClick={handlePushAllToLinear}
-                        className="btn-blue px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5"
-                      >
-                        <Zap className="w-3.5 h-3.5 text-current" />
-                        <span>Push All to Linear ({pendingCount})</span>
-                      </button>
+                    {hasExtracted && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleAddNewTask}
+                          className="btn-secondary-blue px-2.5 py-1 text-xs font-bold flex items-center gap-1 shadow-2xs"
+                          title="Manually add an action item"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-current" />
+                          <span>Add Task</span>
+                        </button>
+                        {pendingCount > 0 && (
+                          <button
+                            onClick={handlePushAllToLinear}
+                            className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1.5"
+                          >
+                            <Zap className="w-3.5 h-3.5 text-current" />
+                            <span>Push All ({pendingCount})</span>
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -1046,6 +1112,8 @@ export default function MeetHubPage() {
                       <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
                         {tasks.map((task) => {
                           const isCreated = task.status === "created";
+                          const isEditing = editingTaskId === task.id;
+
                           let priorityClass = "bg-[#2563EB] text-white border border-[#1D4ED8] font-bold";
                           if (task.priority === "Urgent") {
                             priorityClass = "bg-red-600 text-white font-bold border border-red-700";
@@ -1068,64 +1136,176 @@ export default function MeetHubPage() {
                               </div>
 
                               <div className="p-3.5 bg-[#EAF4EE] space-y-2">
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="text-xs font-bold text-[#060D17] leading-snug">
-                                    {task.task}
-                                  </p>
-                                  <button
-                                    type="button"
-                                    onClick={() => copyTaskDetails(task)}
-                                    title="Copy assignment: who gave work to whom and what work"
-                                    className="p-1 rounded-md text-[#475569] hover:text-[#2563EB] hover:bg-white/80 transition-colors shrink-0 cursor-pointer"
-                                  >
-                                    <Copy className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
+                                {isEditing ? (
+                                  /* Inline Edit Mode */
+                                  <div className="space-y-2">
+                                    <div>
+                                      <label className="text-[10px] font-bold text-[#475569] uppercase">Task Description</label>
+                                      <textarea
+                                        value={editFormData.task || ""}
+                                        onChange={(e) =>
+                                          setEditFormData((prev) => ({ ...prev, task: e.target.value }))
+                                        }
+                                        rows={2}
+                                        className="w-full text-xs font-bold text-[#060D17] p-2 rounded-lg bg-white border border-[#8DB8A2] focus:outline-none focus:border-[#2563EB]"
+                                      />
+                                    </div>
 
-                                <div className="flex items-center gap-2 text-[11px] font-semibold text-[#334155] bg-white/70 px-2.5 py-1 rounded-lg border border-[#CBD5E1]/60">
-                                  <span>
-                                    <strong className="text-[#060D17]">From:</strong> {task.assignedBy || currentPreset.participants[0] || "Lead"}
-                                  </span>
-                                  <span className="text-[#94A3B8]">→</span>
-                                  <span>
-                                    <strong className="text-[#2563EB]">To:</strong> {task.owner}
-                                  </span>
-                                </div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div>
+                                        <label className="text-[10px] font-bold text-[#475569] uppercase">Assigned By (From)</label>
+                                        <input
+                                          type="text"
+                                          value={editFormData.assignedBy || ""}
+                                          onChange={(e) =>
+                                            setEditFormData((prev) => ({ ...prev, assignedBy: e.target.value }))
+                                          }
+                                          className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] font-bold text-[#475569] uppercase">Assignee (To)</label>
+                                        <input
+                                          type="text"
+                                          value={editFormData.owner || ""}
+                                          onChange={(e) =>
+                                            setEditFormData((prev) => ({ ...prev, owner: e.target.value }))
+                                          }
+                                          className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
+                                        />
+                                      </div>
+                                    </div>
 
-                                <div className="flex items-center justify-between pt-1 text-xs text-[#1E293B]">
-                                  <div className="flex items-center gap-3">
-                                    <span className="flex items-center gap-1 font-bold text-[#060D17]">
-                                      <User className="w-3.5 h-3.5 text-[#2563EB]" />
-                                      {task.owner}
-                                    </span>
-                                    <span className="flex items-center gap-1 font-medium text-[#334155]">
-                                      <Calendar className="w-3 h-3 text-[#2563EB]" />
-                                      {task.dueDate}
-                                    </span>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div>
+                                        <label className="text-[10px] font-bold text-[#475569] uppercase">Priority</label>
+                                        <select
+                                          value={editFormData.priority || "Medium"}
+                                          onChange={(e) =>
+                                            setEditFormData((prev) => ({
+                                              ...prev,
+                                              priority: e.target.value as "Urgent" | "High" | "Medium",
+                                            }))
+                                          }
+                                          className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
+                                        >
+                                          <option value="Urgent">Urgent</option>
+                                          <option value="High">High</option>
+                                          <option value="Medium">Medium</option>
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] font-bold text-[#475569] uppercase">Due Date</label>
+                                        <input
+                                          type="date"
+                                          value={editFormData.dueDate || "2026-09-18"}
+                                          onChange={(e) =>
+                                            setEditFormData((prev) => ({ ...prev, dueDate: e.target.value }))
+                                          }
+                                          className="w-full text-xs font-bold text-[#060D17] p-1.5 rounded-lg bg-white border border-[#8DB8A2]"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-end gap-1.5 pt-1">
+                                      <button
+                                        type="button"
+                                        onClick={handleCancelEdit}
+                                        className="btn-secondary-blue px-2.5 py-1 text-xs font-bold"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveEdit(task.id)}
+                                        className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1"
+                                      >
+                                        <Save className="w-3 h-3" />
+                                        <span>Save</span>
+                                      </button>
+                                    </div>
                                   </div>
+                                ) : (
+                                  /* Normal View Mode */
+                                  <>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="text-xs font-bold text-[#060D17] leading-snug">
+                                        {task.task}
+                                      </p>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => copyTaskDetails(task)}
+                                          title="Copy assignment: who gave work to whom and what work"
+                                          className="p-1 rounded-md text-[#475569] hover:text-[#2563EB] hover:bg-white/80 transition-colors cursor-pointer"
+                                        >
+                                          <Copy className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartEdit(task)}
+                                          title="Edit task title, owner, or priority"
+                                          className="p-1 rounded-md text-[#475569] hover:text-[#2563EB] hover:bg-white/80 transition-colors cursor-pointer"
+                                        >
+                                          <Edit3 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteTask(task.id, task.task)}
+                                          title="Discard accidental work or joke"
+                                          className="p-1 rounded-md text-[#475569] hover:text-red-600 hover:bg-white/80 transition-colors cursor-pointer"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
 
-                                  {task.status === "pending" && (
-                                    <button
-                                      onClick={() => handleCreateTicket(task.id, task.owner)}
-                                      className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1"
-                                    >
-                                      <ArrowRight className="w-3 h-3 text-current" />
-                                      <span>Sync</span>
-                                    </button>
-                                  )}
+                                    <div className="flex items-center gap-2 text-[11px] font-semibold text-[#334155] bg-white/70 px-2.5 py-1 rounded-lg border border-[#CBD5E1]/60">
+                                      <span>
+                                        <strong className="text-[#060D17]">From:</strong> {task.assignedBy || currentPreset.participants[0] || "Lead"}
+                                      </span>
+                                      <span className="text-[#94A3B8]">→</span>
+                                      <span>
+                                        <strong className="text-[#2563EB]">To:</strong> {task.owner}
+                                      </span>
+                                    </div>
 
-                                  {isCreated && (
-                                    <button
-                                      type="button"
-                                      onClick={() => copyTaskDetails(task)}
-                                      title="Click to copy assignment details & ticket ID"
-                                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-extrabold text-xs flex items-center gap-1.5 border border-emerald-700 shadow-sm transition-colors cursor-pointer"
-                                    >
-                                      <Check className="w-3.5 h-3.5 text-white" />
-                                      <span>{task.ticketId}</span>
-                                    </button>
-                                  )}
-                                </div>
+                                    <div className="flex items-center justify-between pt-1 text-xs text-[#1E293B]">
+                                      <div className="flex items-center gap-3">
+                                        <span className="flex items-center gap-1 font-bold text-[#060D17]">
+                                          <User className="w-3.5 h-3.5 text-[#2563EB]" />
+                                          {task.owner}
+                                        </span>
+                                        <span className="flex items-center gap-1 font-medium text-[#334155]">
+                                          <Calendar className="w-3 h-3 text-[#2563EB]" />
+                                          {task.dueDate}
+                                        </span>
+                                      </div>
+
+                                      {task.status === "pending" && (
+                                        <button
+                                          onClick={() => handleCreateTicket(task.id, task.owner)}
+                                          className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1"
+                                        >
+                                          <ArrowRight className="w-3 h-3 text-current" />
+                                          <span>Sync</span>
+                                        </button>
+                                      )}
+
+                                      {isCreated && (
+                                        <button
+                                          type="button"
+                                          onClick={() => copyTaskDetails(task)}
+                                          title="Click to copy assignment details & ticket ID"
+                                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-extrabold text-xs flex items-center gap-1.5 border border-emerald-700 shadow-sm transition-colors cursor-pointer"
+                                        >
+                                          <Check className="w-3.5 h-3.5 text-white" />
+                                          <span>{task.ticketId}</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             </div>
                           );
