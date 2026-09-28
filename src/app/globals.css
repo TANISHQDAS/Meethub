@@ -1,0 +1,155 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Kanit:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #000000;
+    color: #f8fafc;
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+
+  .font-display {
+    font-family: 'Plus Jakarta Sans', 'Kanit', sans-serif;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* MeetHub Cyan Dot Grid Background */
+.arsak-dot-grid {
+  background-image: radial-gradient(rgba(107, 245, 255, 0.28) 1.2px, transparent 0);
+  background-size: 28px 28px;
+}
+
+/* MeetHub Tactile Button Styles */
+.btn-blue {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border-radius: 9999px;
+  border: 1px solid #1d4ed8 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-blue:hover {
+  background: #1d4ed8 !important;
+  border-color: #1e40af !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px 0 rgba(37, 99, 235, 0.3) !important;
+}
+
+.btn-blue:active {
+  transform: translateY(0);
+  background: #1e40af !important;
+  box-shadow: none !important;
+}
+
+.btn-secondary-blue {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 600 !important;
+  border-radius: 9999px;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-secondary-blue:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.06) !important;
+}
+
+.btn-secondary-blue:active {
+  transform: translateY(0);
+  background: #f1f5f9 !important;
+  box-shadow: none !important;
+}
+
+/* MeetHub Tactile Sage / Paper Card Styling */
+.arsak-card {
+  background-color: #dfece6;
+  background-image: radial-gradient(ellipse at top left, rgba(209, 250, 229, 0.35) 0, transparent 60%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paperNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paperNoise)' opacity='0.085'/%3E%3C/svg%3E");
+  border: 1.5px solid #8fb6a2;
+  box-shadow: 0 3px 6px rgba(8, 25, 16, 0.08), 0 14px 32px -4px rgba(8, 28, 18, 0.22),
+    0 30px 60px -10px rgba(6, 20, 14, 0.35), 0 0 25px -2px rgba(148, 255, 209, 0.15),
+    inset 0 1.5px 0 0 hsla(0, 0%, 100%, 0.85);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.arsak-card:hover {
+  transform: translateY(-3px);
+  border-color: #52a982;
+  box-shadow: 0 8px 20px rgba(8, 25, 16, 0.12), 0 24px 50px -6px rgba(8, 28, 18, 0.32),
+    0 0 35px -2px rgba(107, 245, 255, 0.3), inset 0 1.5px 0 0 #ffffff;
+}
+
+.arsak-glaze {
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, hsla(0, 0%, 100%, 0.95), transparent);
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 20;
+}
+
+.arsak-shelf {
+  bottom: 0;
+  height: 4.5px;
+  background: linear-gradient(90deg, #a8d1be, #5eead4, #a8d1be);
+  border-top: 1.5px solid #5da888;
+  box-shadow: inset 0 1px 0 hsla(0, 0%, 100%, 0.75);
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 20;
+}
+
+.arsak-recessed {
+  background-color: #d3e5dc;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paperNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paperNoise)' opacity='0.08'/%3E%3C/svg%3E");
+  border-bottom: 1.5px solid #8db8a2;
+  box-shadow: inset 0 3px 6px rgba(10, 35, 25, 0.1);
+}
+
+.arsak-stage {
+  background-color: #deece5;
+  background-image: radial-gradient(circle at top, rgba(209, 250, 229, 0.45) 0, transparent 70%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paperNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paperNoise)' opacity='0.085'/%3E%3C/svg%3E");
+  border: 1.5px solid #85b49c;
+  box-shadow: 0 4px 10px rgba(8, 25, 16, 0.1), 0 18px 40px -6px rgba(8, 28, 18, 0.25),
+    0 42px 90px -15px rgba(6, 20, 14, 0.45), 0 0 45px -4px rgba(107, 245, 255, 0.25),
+    inset 0 1.5px 0 0 hsla(0, 0%, 100%, 0.9);
+  position: relative;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #0891b2;
+}
