@@ -548,11 +548,13 @@ export default function MeetHubPage() {
     try {
       downloadExecutiveAuditPdf({
         meetingTitle: currentPreset.title,
-        date: "Today",
+        date: "Today, 10:00 AM",
+        duration: currentPreset.time,
         participants: currentPreset.participants,
+        summary: `Strategic review of ${currentPreset.title}. Key sprint priorities confirmed, technical dependencies resolved, and deliverables assigned with Linear issue keys.`,
         tasks: tasks.length > 0 ? tasks : currentPreset.tasks,
       });
-      showToast("✓ Executive Audit PDF downloaded successfully!");
+      showToast("✓ Detailed Executive Audit PDF downloaded successfully!");
     } catch {
       showToast("Failed to generate PDF report.");
     }
