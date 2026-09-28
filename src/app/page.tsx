@@ -52,6 +52,12 @@ interface TaskItem {
   ticketId: string;
 }
 
+interface MeetingSummary {
+  tldr: string;
+  keyPoints: string[];
+  decisions: string[];
+}
+
 interface Preset {
   id: string;
   title: string;
@@ -60,6 +66,7 @@ interface Preset {
   participants: string[];
   transcript: string;
   tasks: TaskItem[];
+  summary: MeetingSummary;
 }
 
 const PRESETS: Preset[] = [
@@ -71,6 +78,21 @@ const PRESETS: Preset[] = [
     participants: ["Alex", "Marcus", "Maya"],
     transcript:
       "Alex: Thanks everyone for joining. Marcus, can you optimize the search query performance before Friday?\n\nMarcus: Yes, I will benchmark the database indices tomorrow and post the results.\n\nMaya: I will implement the Linear webhook integration today and write unit tests.\n\nAlex: Great. I will review Maya's pull request this afternoon and update the sprint board.",
+    summary: {
+      tldr: "In this engineering sync, Alex directed Marcus to optimize search query performance before Friday, which Marcus confirmed by committing to benchmark database indices tomorrow. Maya agreed to implement the Linear webhook integration with automated unit tests today, while Alex took ownership of reviewing Maya's pull request this afternoon and updating the sprint board.",
+      keyPoints: [
+        "Alex tasked Marcus with optimizing database search query performance ahead of the Friday sprint cutoff.",
+        "Marcus confirmed he will benchmark database indices tomorrow and post the benchmark results for the engineering team.",
+        "Maya committed to implementing the Linear webhook integration today along with automated unit test coverage.",
+        "Alex confirmed he will review Maya's pull request this afternoon and update the sprint board with the latest progress.",
+      ],
+      decisions: [
+        "Search query performance optimization committed for completion by Friday.",
+        "Database indexing benchmarks scheduled for execution tomorrow morning.",
+        "Linear webhook integration and automated unit tests scheduled for deployment today.",
+        "Pull request review and sprint board synchronization locked for this afternoon.",
+      ],
+    },
     tasks: [
       {
         id: "t-1",
@@ -115,6 +137,21 @@ const PRESETS: Preset[] = [
     participants: ["Sarah", "David", "Elena"],
     transcript:
       "Sarah: We need to finalize the data export modal before next week's release.\n\nDavid: I will draft the export data schema today and share the specs with the team.\n\nElena: I will update the export dialog components in Figma by Thursday.\n\nSarah: Once designs are ready, I will coordinate with customer success for feedback.",
+    summary: {
+      tldr: "Sarah emphasized the critical requirement to finalize the data export modal prior to next week's release. David agreed to draft the export data schema and share technical specifications today, Elena will update the export dialog UI components in Figma by Thursday, and Sarah will coordinate with customer success to collect user feedback once designs are finalized.",
+      keyPoints: [
+        "Sarah highlighted that finalizing the customer data export modal is a blocking prerequisite for next week's release.",
+        "David agreed to draft the export data schema today and distribute the specifications to the engineering team.",
+        "Elena committed to updating the export dialog design components and interaction states in Figma by Thursday.",
+        "Sarah will coordinate directly with customer success to gather user feedback once Figma designs are ready.",
+      ],
+      decisions: [
+        "Data export modal delivery locked as the primary milestone for next week's release.",
+        "Technical export data schema specifications to be published today by David.",
+        "Figma UI component library update due Thursday from Elena.",
+        "Customer success review cycle scheduled immediately following design sign-off.",
+      ],
+    },
     tasks: [
       {
         id: "t-4",
@@ -159,6 +196,20 @@ const PRESETS: Preset[] = [
     participants: ["Ken", "Sophia", "James"],
     transcript:
       "Ken: Let's review our API security checklist ahead of next week's audit.\n\nSophia: I will verify token encryption at rest across all endpoints by Friday.\n\nJames: I will update the customer data privacy documentation today.\n\nKen: I will prepare the final audit report package for the compliance team.",
+    summary: {
+      tldr: "Ahead of next week's compliance audit, Ken initiated a review of the API security checklist. Sophia agreed to audit and verify token encryption at rest across all endpoints by Friday, James took ownership of refreshing customer data privacy documentation today, and Ken will compile the final audit report package for the compliance team.",
+      keyPoints: [
+        "Ken initiated a review of the API security checklist to prepare the team for next week's compliance audit.",
+        "Sophia committed to verifying token encryption at rest across all endpoints before Friday.",
+        "James agreed to update and publish customer data privacy and retention documentation today.",
+        "Ken will prepare, package, and deliver the final audit report package to the compliance team.",
+      ],
+      decisions: [
+        "Token encryption verification across all API endpoints mandated before Friday.",
+        "Customer data privacy documentation update completed today.",
+        "Final compliance audit report packaging and submission led by Ken.",
+      ],
+    },
     tasks: [
       {
         id: "t-7",
@@ -360,6 +411,7 @@ export default function MeetHubPage() {
 
   // Tab state for right column in Interactive Pipeline
   const [activeRightTab, setActiveRightTab] = useState<"summary" | "tickets" | "analytics">("summary");
+  const [extractedSummary, setExtractedSummary] = useState<MeetingSummary | null>(null);
 
   // Inline task editing state
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -374,20 +426,7 @@ export default function MeetHubPage() {
     platform: "Google Meet",
     sentimentScore: 92,
     engagementScore: 89,
-    summary: {
-      tldr: "The team finalized the Q4 roadmap priorities, approving the real-time AI transcription integration, migrating to automated action-item tracking, and establishing a December 15th release cutoff.",
-      keyPoints: [
-        "Approved Groq Whisper-large-v3 integration for low-latency live captions.",
-        "Allocated 2 weeks for the Web Audio mixer to support dual microphone and browser tab audio capture.",
-        "Agreed to introduce sentiment and engagement scoring directly into the participant meeting recap email.",
-        "Confirmed privacy-first architecture with end-to-end meeting recording storage.",
-      ],
-      decisions: [
-        "Target December 15 for the public beta launch.",
-        "Use Google Gemini 1.5 Flash as the default high-throughput summarizer.",
-        "Implement one-click Gmail SMTP recap dispatcher for post-call summaries.",
-      ],
-    },
+    summary: extractedSummary || currentPreset.summary,
     chapters: [
       {
         id: "c1",
@@ -441,6 +480,7 @@ export default function MeetHubPage() {
     setTranscript(preset.transcript);
     setTasks(preset.tasks);
     setHasExtracted(false);
+    setExtractedSummary(null);
     setCurrentStep(1);
     setStatusMessage(null);
     showToast(`Loaded: ${preset.title}`);
@@ -459,6 +499,15 @@ export default function MeetHubPage() {
 
       if (res.ok) {
         const data = await res.json();
+
+        // 1. Set detailed summary covering every point of the dialogue
+        if (data.summary && data.summary.tldr) {
+          setExtractedSummary(data.summary);
+        } else {
+          setExtractedSummary(currentPreset.summary);
+        }
+
+        // 2. Set extracted action items
         if (data.actionItems && data.actionItems.length > 0) {
           const mapped: TaskItem[] = data.actionItems.map((item: any, i: number) => ({
             id: item.id || `t-${Date.now()}-${i}`,
@@ -472,22 +521,23 @@ export default function MeetHubPage() {
             ticketId: "",
           }));
           setTasks(mapped);
-          showToast(`✓ Extracted ${mapped.length} action items`);
+          showToast(`✓ Extracted detailed summary & ${mapped.length} action items`);
         } else {
           setTasks(currentPreset.tasks);
-          showToast(`✓ Extracted ${currentPreset.tasks.length} action items`);
+          showToast(`✓ Extracted detailed summary & ${currentPreset.tasks.length} action items`);
         }
       } else {
+        setExtractedSummary(currentPreset.summary);
         setTasks(currentPreset.tasks);
-        showToast(`✓ Extracted ${currentPreset.tasks.length} action items`);
+        showToast(`✓ Extracted detailed summary & ${currentPreset.tasks.length} action items`);
       }
     } catch {
+      setExtractedSummary(currentPreset.summary);
       setTasks(currentPreset.tasks);
-      showToast(`✓ Extracted ${currentPreset.tasks.length} action items`);
+      showToast(`✓ Extracted detailed summary & ${currentPreset.tasks.length} action items`);
     } finally {
       setIsExtracting(false);
       setHasExtracted(true);
-      setActiveRightTab("tickets");
       setCurrentStep(2);
     }
   };
@@ -999,7 +1049,11 @@ export default function MeetHubPage() {
                   <div className="relative rounded-xl bg-[#EAF4EE] p-4 border border-[#8DB8A2] focus-within:border-[#06B6D4] focus-within:ring-2 focus-within:ring-cyan-200 transition-all shadow-xs">
                     <textarea
                       value={transcript}
-                      onChange={(e) => setTranscript(e.target.value)}
+                      onChange={(e) => {
+                        setTranscript(e.target.value);
+                        setHasExtracted(false);
+                        setExtractedSummary(null);
+                      }}
                       rows={7}
                       className="w-full bg-transparent text-sm text-[#060D17] font-semibold leading-relaxed focus:outline-none resize-none placeholder-[#64748B]"
                       placeholder="Paste meeting dialogue, discussion notes, or upload a transcript file..."
@@ -1084,66 +1138,101 @@ export default function MeetHubPage() {
 
                   {/* Tab 1: Executive Summary */}
                   {activeRightTab === "summary" && (
-                    <div className="arsak-card rounded-2xl p-6 bg-[#E2EFE8] border border-[#8DB8A2] space-y-5 shadow-xs">
-                      {/* EXECUTIVE TL;DR */}
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-black tracking-wider uppercase text-[#0E7490] font-display">
-                          EXECUTIVE TL;DR
-                        </h4>
-                        <div className="rounded-xl p-4 bg-[#F4FAF6] border border-[#8DB8A2]/70 text-xs sm:text-sm font-semibold text-[#060D17] leading-relaxed shadow-2xs">
-                          {currentMeetingObj.summary.tldr}
+                    <>
+                      {!hasExtracted || !extractedSummary ? (
+                        <div className="arsak-card rounded-2xl p-8 bg-[#E2EFE8] border border-[#8DB8A2] text-center space-y-4">
+                          <div className="w-14 h-14 rounded-2xl bg-[#ECFEFF] border border-[#67E8F9] text-[#0891B2] flex items-center justify-center mx-auto shadow-xs">
+                            <Sparkles className="w-7 h-7" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <h4 className="font-extrabold text-base text-[#060D17] font-display">
+                              No Meeting Summary Generated Yet
+                            </h4>
+                            <p className="text-xs text-[#334155] font-medium max-w-xs mx-auto leading-relaxed">
+                              Click <strong>&ldquo;Extract &amp; Assign Action Items →&rdquo;</strong> to analyze the meeting dialogue, generate an executive TL;DR, and cover every point from the conversation.
+                            </p>
+                          </div>
+                          <button
+                            onClick={handleExtractTasks}
+                            disabled={isExtracting || !transcript.trim()}
+                            className="btn-blue px-5 py-2.5 text-xs font-bold inline-flex items-center gap-2 shadow-xs cursor-pointer"
+                          >
+                            {isExtracting ? (
+                              <>
+                                <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                <span>Generating Summary…</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3.5 h-3.5 text-current" />
+                                <span>Extract &amp; Summarize Now</span>
+                              </>
+                            )}
+                          </button>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="arsak-card rounded-2xl p-6 bg-[#E2EFE8] border border-[#8DB8A2] space-y-5 shadow-xs">
+                          {/* EXECUTIVE TL;DR */}
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-black tracking-wider uppercase text-[#0E7490] font-display">
+                              EXECUTIVE TL;DR
+                            </h4>
+                            <div className="rounded-xl p-4 bg-[#F4FAF6] border border-[#8DB8A2]/70 text-xs sm:text-sm font-semibold text-[#060D17] leading-relaxed shadow-2xs">
+                              {extractedSummary.tldr}
+                            </div>
+                          </div>
 
-                      {/* KEY TAKEAWAYS */}
-                      <div className="space-y-2.5">
-                        <h4 className="text-xs font-black tracking-wider uppercase text-[#0284C7] font-display">
-                          KEY TAKEAWAYS
-                        </h4>
-                        <ul className="space-y-2">
-                          {currentMeetingObj.summary.keyPoints.map((point, idx) => (
-                            <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold text-[#1E293B] leading-snug">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#0284C7] mt-1.5 shrink-0" />
-                              <span>{point}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                          {/* KEY TAKEAWAYS */}
+                          <div className="space-y-2.5">
+                            <h4 className="text-xs font-black tracking-wider uppercase text-[#0284C7] font-display">
+                              KEY TAKEAWAYS
+                            </h4>
+                            <ul className="space-y-2">
+                              {extractedSummary.keyPoints.map((point, idx) => (
+                                <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold text-[#1E293B] leading-snug">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#0284C7] mt-1.5 shrink-0" />
+                                  <span>{point}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
 
-                      {/* DECISIONS MADE */}
-                      <div className="space-y-2.5">
-                        <h4 className="text-xs font-black tracking-wider uppercase text-[#0F766E] font-display">
-                          DECISIONS MADE
-                        </h4>
-                        <ul className="space-y-2">
-                          {currentMeetingObj.summary.decisions.map((decision, idx) => (
-                            <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold text-[#1E293B] leading-snug">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#0F766E] mt-1.5 shrink-0" />
-                              <span>{decision}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                          {/* DECISIONS MADE */}
+                          <div className="space-y-2.5">
+                            <h4 className="text-xs font-black tracking-wider uppercase text-[#0F766E] font-display">
+                              DECISIONS MADE
+                            </h4>
+                            <ul className="space-y-2">
+                              {extractedSummary.decisions.map((decision, idx) => (
+                                <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold text-[#1E293B] leading-snug">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#0F766E] mt-1.5 shrink-0" />
+                                  <span>{decision}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
 
-                      <div className="pt-3 flex items-center justify-between border-t border-[#8DB8A2]/60">
-                        <button
-                          type="button"
-                          onClick={() => setActiveRightTab("tickets")}
-                          className="btn-blue px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-1.5"
-                        >
-                          <Zap className="w-3.5 h-3.5" />
-                          <span>View Linear Tickets ({tasks.length})</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleExportPdf}
-                          className="btn-secondary-blue px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-1.5"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-current" />
-                          <span>Export PDF</span>
-                        </button>
-                      </div>
-                    </div>
+                          <div className="pt-3 flex items-center justify-between border-t border-[#8DB8A2]/60">
+                            <button
+                              type="button"
+                              onClick={() => setActiveRightTab("tickets")}
+                              className="btn-blue px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-1.5"
+                            >
+                              <Zap className="w-3.5 h-3.5" />
+                              <span>View Linear Tickets ({tasks.length})</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleExportPdf}
+                              className="btn-secondary-blue px-3.5 py-1.5 text-xs font-bold inline-flex items-center gap-1.5"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-current" />
+                              <span>Export PDF</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Tab 2: Linear Tickets */}
