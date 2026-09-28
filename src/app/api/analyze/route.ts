@@ -84,7 +84,8 @@ Output JSON schema:
     {
       "id": "act-1",
       "text": "string (action verb + task)",
-      "assignee": "string (person name or Team)",
+      "assignee": "string (person name or Team who will do the work)",
+      "assignedBy": "string (speaker name who gave or assigned the work)",
       "due": "string (e.g. This Friday / Next Week)",
       "priority": "High" | "Medium" | "Low",
       "completed": false

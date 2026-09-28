@@ -24,6 +24,7 @@ import {
   X,
   Mail,
   ExternalLink,
+  Copy,
 } from "lucide-react";
 import FluidWaveBackground from "@/components/FluidWaveBackground";
 import BrowserRecorderModal from "@/components/BrowserRecorderModal";
@@ -37,6 +38,7 @@ interface TaskItem {
   id: string;
   task: string;
   owner: string;
+  assignedBy?: string;
   dueDate: string;
   priority: "Urgent" | "High" | "Medium";
   category: string;
@@ -68,6 +70,7 @@ const PRESETS: Preset[] = [
         id: "t-1",
         task: "Optimize search query performance and database indices",
         owner: "Marcus",
+        assignedBy: "Alex",
         dueDate: "2026-09-12",
         priority: "High",
         category: "Database",
@@ -78,6 +81,7 @@ const PRESETS: Preset[] = [
         id: "t-2",
         task: "Implement Linear webhook integration with unit tests",
         owner: "Maya",
+        assignedBy: "Alex",
         dueDate: "2026-09-10",
         priority: "Urgent",
         category: "Backend",
@@ -88,6 +92,7 @@ const PRESETS: Preset[] = [
         id: "t-3",
         task: "Review webhook pull request and update sprint board",
         owner: "Alex",
+        assignedBy: "Marcus",
         dueDate: "2026-09-11",
         priority: "Medium",
         category: "Review",
@@ -109,6 +114,7 @@ const PRESETS: Preset[] = [
         id: "t-4",
         task: "Draft export data schema and review specifications",
         owner: "David",
+        assignedBy: "Sarah",
         dueDate: "2026-09-11",
         priority: "High",
         category: "Architecture",
@@ -119,6 +125,7 @@ const PRESETS: Preset[] = [
         id: "t-5",
         task: "Update export dialog design components in Figma",
         owner: "Elena",
+        assignedBy: "Sarah",
         dueDate: "2026-09-13",
         priority: "Urgent",
         category: "Design",
@@ -129,6 +136,7 @@ const PRESETS: Preset[] = [
         id: "t-6",
         task: "Coordinate customer feedback review session",
         owner: "Sarah",
+        assignedBy: "David",
         dueDate: "2026-09-14",
         priority: "Medium",
         category: "Customer Success",
@@ -150,6 +158,7 @@ const PRESETS: Preset[] = [
         id: "t-7",
         task: "Verify token encryption at rest across API endpoints",
         owner: "Sophia",
+        assignedBy: "Ken",
         dueDate: "2026-09-12",
         priority: "Urgent",
         category: "Security",
@@ -160,6 +169,7 @@ const PRESETS: Preset[] = [
         id: "t-8",
         task: "Update customer data privacy documentation",
         owner: "James",
+        assignedBy: "Ken",
         dueDate: "2026-09-10",
         priority: "High",
         category: "Documentation",
@@ -170,6 +180,7 @@ const PRESETS: Preset[] = [
         id: "t-9",
         task: "Prepare final audit report package for compliance team",
         owner: "Ken",
+        assignedBy: "Sophia",
         dueDate: "2026-09-14",
         priority: "Medium",
         category: "Compliance",
@@ -438,6 +449,7 @@ export default function MeetHubPage() {
             id: item.id || `t-${Date.now()}-${i}`,
             task: item.text || item.task,
             owner: item.assignee || item.owner || "Alex",
+            assignedBy: item.assignedBy || currentPreset.participants[0] || "Team Lead",
             dueDate: item.due || "2026-09-15",
             priority: item.priority || (i === 0 ? "Urgent" : i === 1 ? "High" : "Medium"),
             category: item.category || "Engineering",
@@ -462,6 +474,20 @@ export default function MeetHubPage() {
       setHasExtracted(true);
       setCurrentStep(2);
     }
+  };
+
+  const copyTaskDetails = (task: TaskItem) => {
+    const fromPerson = task.assignedBy || currentPreset.participants[0] || "Team Lead";
+    const toPerson = task.owner;
+    const work = task.task;
+    const ticketInfo = task.ticketId ? ` | Linear: ${task.ticketId}` : "";
+
+    const textToCopy = `Task: ${work}\nAssigned by: ${fromPerson}\nAssigned to: ${toPerson}\nDue Date: ${task.dueDate}\nPriority: ${task.priority}${ticketInfo}`;
+
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(textToCopy);
+    }
+    showToast(`✓ Copied: ${fromPerson} assigned to ${toPerson} ("${work.length > 28 ? work.slice(0, 26) + "..." : work}")`);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1040,9 +1066,29 @@ export default function MeetHubPage() {
                               </div>
 
                               <div className="p-3.5 bg-[#EAF4EE] space-y-2">
-                                <p className="text-xs font-bold text-[#060D17] leading-snug">
-                                  {task.task}
-                                </p>
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-xs font-bold text-[#060D17] leading-snug">
+                                    {task.task}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyTaskDetails(task)}
+                                    title="Copy assignment: who gave work to whom and what work"
+                                    className="p-1 rounded-md text-[#475569] hover:text-[#2563EB] hover:bg-white/80 transition-colors shrink-0 cursor-pointer"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                <div className="flex items-center gap-2 text-[11px] font-semibold text-[#334155] bg-white/70 px-2.5 py-1 rounded-lg border border-[#CBD5E1]/60">
+                                  <span>
+                                    <strong className="text-[#060D17]">From:</strong> {task.assignedBy || currentPreset.participants[0] || "Lead"}
+                                  </span>
+                                  <span className="text-[#94A3B8]">→</span>
+                                  <span>
+                                    <strong className="text-[#2563EB]">To:</strong> {task.owner}
+                                  </span>
+                                </div>
 
                                 <div className="flex items-center justify-between pt-1 text-xs text-[#1E293B]">
                                   <div className="flex items-center gap-3">
@@ -1069,13 +1115,8 @@ export default function MeetHubPage() {
                                   {isCreated && (
                                     <button
                                       type="button"
-                                      onClick={() => {
-                                        if (typeof navigator !== "undefined" && navigator.clipboard) {
-                                          navigator.clipboard.writeText(task.ticketId);
-                                        }
-                                        showToast(`✓ Ticket ${task.ticketId} copied to clipboard! (Synced to Linear)`);
-                                      }}
-                                      title="Click to copy Linear ticket ID"
+                                      onClick={() => copyTaskDetails(task)}
+                                      title="Click to copy assignment details & ticket ID"
                                       className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-extrabold text-xs flex items-center gap-1.5 border border-emerald-700 shadow-sm transition-colors cursor-pointer"
                                     >
                                       <Check className="w-3.5 h-3.5 text-white" />
