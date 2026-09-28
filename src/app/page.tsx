@@ -873,12 +873,27 @@ export default function MeetHubPage() {
 
   const handleExportPdf = () => {
     try {
+      const activeTitle = activeMediaSource.title || currentPreset.title;
+      const activeDuration = activeMediaSource.time || currentPreset.time;
+      const activeParticipants =
+        extractedSpeakers && extractedSpeakers.length > 0
+          ? extractedSpeakers.map((s) => s.name)
+          : activeMediaSource.participants &&
+            activeMediaSource.participants.length > 0 &&
+            !activeMediaSource.participants[0].includes("Detecting")
+          ? activeMediaSource.participants
+          : currentPreset.participants;
+
+      const activeSummary =
+        extractedSummary?.tldr ||
+        `Strategic review of ${activeTitle}. Key discussion priorities confirmed, technical dependencies resolved, and deliverables tracked with Linear issue keys.`;
+
       downloadExecutiveAuditPdf({
-        meetingTitle: currentPreset.title,
+        meetingTitle: activeTitle,
         date: "Today, 10:00 AM",
-        duration: currentPreset.time,
-        participants: currentPreset.participants,
-        summary: `Strategic review of ${currentPreset.title}. Key sprint priorities confirmed, technical dependencies resolved, and deliverables assigned with Linear issue keys.`,
+        duration: activeDuration,
+        participants: activeParticipants,
+        summary: activeSummary,
         tasks: tasks.length > 0 ? tasks : currentPreset.tasks,
       });
       showToast("✓ Detailed Executive Audit PDF downloaded successfully!");

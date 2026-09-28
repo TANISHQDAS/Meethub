@@ -29,7 +29,7 @@ export function downloadExecutiveAuditPdf(data: PdfExportData) {
   const participants = sanitizePdfText(
     data.participants && data.participants.length > 0
       ? data.participants.join(", ")
-      : "Alex, Marcus, Maya"
+      : safeTitle || "Meeting Host"
   );
   const summary = sanitizePdfText(
     data.summary ||
@@ -45,13 +45,30 @@ export function downloadExecutiveAuditPdf(data: PdfExportData) {
 
   // 2. Section 1: Executive Overview
   stream += `BT /F1 12 Tf 50 680 Td (1. EXECUTIVE SUMMARY & STRATEGIC ALIGNMENT) Tj ET\n`;
-  const summaryLine1 = summary.length > 100 ? summary.slice(0, 98) + "..." : summary;
-  stream += `BT /F1 9 Tf 50 663 Td (${summaryLine1}) Tj ET\n`;
+  const words = summary.split(" ");
+  const summaryLines: string[] = [];
+  let curSummaryLine = "";
+  for (const w of words) {
+    if ((curSummaryLine + " " + w).trim().length <= 92) {
+      curSummaryLine = (curSummaryLine + " " + w).trim();
+    } else {
+      if (curSummaryLine) summaryLines.push(curSummaryLine);
+      curSummaryLine = w;
+    }
+  }
+  if (curSummaryLine) summaryLines.push(curSummaryLine);
+
+  let curY = 663;
+  summaryLines.slice(0, 3).forEach((line) => {
+    stream += `BT /F1 9 Tf 50 ${curY} Td (${line}) Tj ET\n`;
+    curY -= 13;
+  });
 
   // 3. Section 2: Detailed Action Item Delegation Matrix
-  stream += `BT /F1 12 Tf 50 635 Td (2. ACTION ITEM DELEGATION MATRIX - WHO ASSIGNED TO WHOM) Tj ET\n`;
+  curY -= 8;
+  stream += `BT /F1 12 Tf 50 ${curY} Td (2. ACTION ITEM DELEGATION MATRIX - WHO ASSIGNED TO WHOM) Tj ET\n`;
 
-  let y = 612;
+  let y = curY - 20;
   const items = data.tasks && data.tasks.length > 0 ? data.tasks : [];
 
   items.forEach((item, index) => {
