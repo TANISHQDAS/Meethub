@@ -31,6 +31,7 @@ import EmailRecapModal from "@/components/EmailRecapModal";
 import AskAIModal from "@/components/AskAIModal";
 import { SAMPLE_MEETINGS } from "@/lib/sampleData";
 import { Meeting } from "@/types";
+import { downloadExecutiveAuditPdf } from "@/lib/pdfGenerator";
 
 interface TaskItem {
   id: string;
@@ -321,6 +322,7 @@ export default function MeetHubPage() {
   const [transcript, setTranscript] = useState(PRESETS[0].transcript);
   const [tasks, setTasks] = useState<TaskItem[]>(PRESETS[0].tasks);
   const [currentStep, setCurrentStep] = useState(1);
+  const [hasExtracted, setHasExtracted] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isParsingFile, setIsParsingFile] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; ok: boolean } | null>(null);
@@ -412,6 +414,7 @@ export default function MeetHubPage() {
     setCurrentPreset(preset);
     setTranscript(preset.transcript);
     setTasks(preset.tasks);
+    setHasExtracted(false);
     setCurrentStep(1);
     setStatusMessage(null);
     showToast(`Loaded: ${preset.title}`);
@@ -456,6 +459,7 @@ export default function MeetHubPage() {
       showToast(`✓ Extracted ${currentPreset.tasks.length} action items`);
     } finally {
       setIsExtracting(false);
+      setHasExtracted(true);
       setCurrentStep(2);
     }
   };
@@ -515,16 +519,24 @@ export default function MeetHubPage() {
   };
 
   const handleExportPdf = () => {
-    showToast("Generating Executive PDF Report…");
-    setTimeout(() => {
-      showToast("✓ Executive PDF report downloaded");
-    }, 1200);
+    try {
+      downloadExecutiveAuditPdf({
+        meetingTitle: currentPreset.title,
+        date: "Today",
+        participants: currentPreset.participants,
+        tasks: tasks.length > 0 ? tasks : currentPreset.tasks,
+      });
+      showToast("✓ Executive Audit PDF downloaded successfully!");
+    } catch {
+      showToast("Failed to generate PDF report.");
+    }
   };
 
   const handleResetDemo = () => {
     setCurrentStep(1);
     setTranscript(currentPreset.transcript);
     setTasks(currentPreset.tasks);
+    setHasExtracted(false);
     setStatusMessage(null);
     showToast("Demo reset to initial state");
   };
@@ -946,16 +958,20 @@ export default function MeetHubPage() {
                       <h3 className="font-extrabold text-base text-[#060D17] flex items-center gap-2 font-display">
                         <SquareCheckBig className="w-4 h-4 text-[#2563EB]" />
                         <span>Detected Action Items</span>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white text-[#1E293B] border border-[#CBD5E1]">
-                          {tasks.length}
-                        </span>
+                        {hasExtracted && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white text-[#1E293B] border border-[#CBD5E1]">
+                            {tasks.length}
+                          </span>
+                        )}
                       </h3>
                       <p className="text-xs text-[#1E293B] font-medium">
-                        Ready to sync directly with your Linear backlog
+                        {hasExtracted
+                          ? "Ready to sync directly with your Linear backlog"
+                          : "Extract commitments to view action items"}
                       </p>
                     </div>
 
-                    {pendingCount > 0 && (
+                    {hasExtracted && pendingCount > 0 && (
                       <button
                         onClick={handlePushAllToLinear}
                         className="btn-blue px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5"
@@ -966,89 +982,129 @@ export default function MeetHubPage() {
                     )}
                   </div>
 
-                  <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-                    {tasks.map((task) => {
-                      const isCreated = task.status === "created";
-                      let priorityClass = "bg-[#2563EB] text-white border border-[#1D4ED8] font-bold";
-                      if (task.priority === "Urgent") {
-                        priorityClass = "bg-red-600 text-white font-bold border border-red-700";
-                      } else if (task.priority === "High") {
-                        priorityClass = "bg-amber-600 text-white font-bold border border-amber-700";
-                      }
+                  {!hasExtracted ? (
+                    <div className="arsak-card rounded-2xl p-8 bg-[#E2EFE8] border border-[#8DB8A2] text-center space-y-4">
+                      <div className="w-14 h-14 rounded-2xl bg-[#ECFEFF] border border-[#67E8F9] text-[#0891B2] flex items-center justify-center mx-auto shadow-xs">
+                        <Sparkles className="w-7 h-7" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <h4 className="font-extrabold text-base text-[#060D17] font-display">
+                          No Action Items Extracted Yet
+                        </h4>
+                        <p className="text-xs text-[#334155] font-medium max-w-xs mx-auto leading-relaxed">
+                          Click <strong>&ldquo;Extract &amp; Assign Action Items →&rdquo;</strong> to analyze the meeting dialogue, assign owners, and generate Linear tickets.
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleExtractTasks}
+                        disabled={isExtracting || !transcript.trim()}
+                        className="btn-blue px-5 py-2.5 text-xs font-bold inline-flex items-center gap-2 shadow-xs"
+                      >
+                        {isExtracting ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                            <span>Extracting…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5 text-current" />
+                            <span>Extract &amp; Assign Now</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                        {tasks.map((task) => {
+                          const isCreated = task.status === "created";
+                          let priorityClass = "bg-[#2563EB] text-white border border-[#1D4ED8] font-bold";
+                          if (task.priority === "Urgent") {
+                            priorityClass = "bg-red-600 text-white font-bold border border-red-700";
+                          } else if (task.priority === "High") {
+                            priorityClass = "bg-amber-600 text-white font-bold border border-amber-700";
+                          }
 
-                      return (
-                        <div key={task.id} className="arsak-card rounded-xl overflow-hidden shadow-xs">
-                          <div className="arsak-glaze" />
-                          <div className="arsak-shelf" />
+                          return (
+                            <div key={task.id} className="arsak-card rounded-xl overflow-hidden shadow-xs">
+                              <div className="arsak-glaze" />
+                              <div className="arsak-shelf" />
 
-                          <div className="arsak-recessed px-3.5 py-2 flex items-center justify-between gap-2">
-                            <span className={`text-[11px] px-2 py-0.5 rounded-md border ${priorityClass}`}>
-                              {task.priority}
-                            </span>
-                            <span className="text-[11px] font-bold text-[#334155] bg-white px-2 py-0.5 rounded-md border border-[#CBD5E1]">
-                              {task.category}
-                            </span>
-                          </div>
-
-                          <div className="p-3.5 bg-[#EAF4EE] space-y-2">
-                            <p className="text-xs font-bold text-[#060D17] leading-snug">
-                              {task.task}
-                            </p>
-
-                            <div className="flex items-center justify-between pt-1 text-xs text-[#1E293B]">
-                              <div className="flex items-center gap-3">
-                                <span className="flex items-center gap-1 font-bold text-[#060D17]">
-                                  <User className="w-3.5 h-3.5 text-[#2563EB]" />
-                                  {task.owner}
+                              <div className="arsak-recessed px-3.5 py-2 flex items-center justify-between gap-2">
+                                <span className={`text-[11px] px-2 py-0.5 rounded-md border ${priorityClass}`}>
+                                  {task.priority}
                                 </span>
-                                <span className="flex items-center gap-1 font-medium text-[#334155]">
-                                  <Calendar className="w-3 h-3 text-[#2563EB]" />
-                                  {task.dueDate}
+                                <span className="text-[11px] font-bold text-[#334155] bg-white px-2 py-0.5 rounded-md border border-[#CBD5E1]">
+                                  {task.category}
                                 </span>
                               </div>
 
-                              {task.status === "pending" && (
-                                <button
-                                  onClick={() => handleCreateTicket(task.id, task.owner)}
-                                  className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1"
-                                >
-                                  <ArrowRight className="w-3 h-3 text-current" />
-                                  <span>Sync</span>
-                                </button>
-                              )}
+                              <div className="p-3.5 bg-[#EAF4EE] space-y-2">
+                                <p className="text-xs font-bold text-[#060D17] leading-snug">
+                                  {task.task}
+                                </p>
 
-                              {isCreated && (
-                                <a
-                                  href="https://linear.app"
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-extrabold text-xs flex items-center gap-1.5 border border-emerald-700 shadow-sm transition-colors"
-                                >
-                                  <Check className="w-3.5 h-3.5 text-white" />
-                                  <span>{task.ticketId}</span>
-                                </a>
-                              )}
+                                <div className="flex items-center justify-between pt-1 text-xs text-[#1E293B]">
+                                  <div className="flex items-center gap-3">
+                                    <span className="flex items-center gap-1 font-bold text-[#060D17]">
+                                      <User className="w-3.5 h-3.5 text-[#2563EB]" />
+                                      {task.owner}
+                                    </span>
+                                    <span className="flex items-center gap-1 font-medium text-[#334155]">
+                                      <Calendar className="w-3 h-3 text-[#2563EB]" />
+                                      {task.dueDate}
+                                    </span>
+                                  </div>
+
+                                  {task.status === "pending" && (
+                                    <button
+                                      onClick={() => handleCreateTicket(task.id, task.owner)}
+                                      className="btn-blue px-3 py-1 text-xs font-bold flex items-center gap-1"
+                                    >
+                                      <ArrowRight className="w-3 h-3 text-current" />
+                                      <span>Sync</span>
+                                    </button>
+                                  )}
+
+                                  {isCreated && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (typeof navigator !== "undefined" && navigator.clipboard) {
+                                          navigator.clipboard.writeText(task.ticketId);
+                                        }
+                                        showToast(`✓ Ticket ${task.ticketId} copied to clipboard! (Synced to Linear)`);
+                                      }}
+                                      title="Click to copy Linear ticket ID"
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-extrabold text-xs flex items-center gap-1.5 border border-emerald-700 shadow-sm transition-colors cursor-pointer"
+                                    >
+                                      <Check className="w-3.5 h-3.5 text-white" />
+                                      <span>{task.ticketId}</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                          );
+                        })}
+                      </div>
 
-                  {createdCount > 0 && (
-                    <div className="p-3.5 rounded-xl bg-[#EAF4EE] border border-emerald-400 text-xs text-[#060D17] flex items-center justify-between shadow-sm">
-                      <span className="font-extrabold flex items-center gap-1.5">
-                        <Check className="w-4 h-4 text-emerald-600" />
-                        Linear Sync Complete: {createdCount} of {tasks.length} tickets synchronized
-                      </span>
-                      <button
-                        onClick={handleExportPdf}
-                        className="text-[#0891B2] font-extrabold hover:underline inline-flex items-center gap-1"
-                      >
-                        <span>Download Executive Audit</span>
-                        <ArrowRight className="w-3 h-3 text-current" />
-                      </button>
-                    </div>
+                      {createdCount > 0 && (
+                        <div className="p-3.5 rounded-xl bg-[#EAF4EE] border border-emerald-400 text-xs text-[#060D17] flex items-center justify-between shadow-sm">
+                          <span className="font-extrabold flex items-center gap-1.5">
+                            <Check className="w-4 h-4 text-emerald-600" />
+                            Linear Sync Complete: {createdCount} of {tasks.length} tickets synchronized
+                          </span>
+                          <button
+                            onClick={handleExportPdf}
+                            className="text-[#0891B2] font-extrabold hover:underline inline-flex items-center gap-1"
+                          >
+                            <span>Download Executive Audit</span>
+                            <ArrowRight className="w-3 h-3 text-current" />
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
