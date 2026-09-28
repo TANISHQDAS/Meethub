@@ -73,6 +73,11 @@ If the transcript is an instructional tutorial, product walkthrough, or educatio
 - NEVER treat stopwords or pronouns ("the", "this", "any", "assign", "it") as assignees. 'assignee' must always be a valid human name, role, or team (e.g. "User" or "Team Member").
 - NEVER treat casual filler phrases as action items (e.g. "Get right into it", "Seeing you guys in another video", "Welcome to another video").
 - Extract the actual practical instructions or demonstrated workflow steps (e.g. "Configure task title, due date, and assignee in Teams chat", "Manage task assignments via Teams Tasks tab").
+8. DIRECT DELEGATIONS & INTRODUCTORY TALK:
+- Phrases like "Hello everyone, let's talk about the project" are meeting openers, NOT action items. Never extract "Talk about the project" as a task!
+- Explicit delegations like "Person A, you have to write 1 to 10 in reverse", "Person B, you have to write A to Z", "Talk to person D you need to create a private workshop..." must EACH be extracted as separate distinct action items with 'assignee': "Person A", "Person B", "Person D", and 'assignedBy': "Host".
+- Adjacent priority/deadline sentences like "It is a most priority task", "You need to complete it under 24 hours" must be reflected on the assigned item as priority: "Urgent", due: "Under 24 hours".
+- NEVER default assignee to 'Host' when the host is delegating work to other people or names!
 
 Transcript:
 ${transcriptText}
@@ -363,13 +368,14 @@ function parseTranscriptDialogue(transcriptText: string) {
     "monday", "tuesday", "wednesday", "thursday", "saturday", "sunday", "morning", "afternoon",
     "evening", "video", "tutorial", "channel", "teams", "microsoft", "process", "app", "chat",
     "tab", "menu", "drop", "name", "down", "notes", "input", "plus", "field", "button", "article",
-    "another", "other", "all", "each", "both"
+    "another", "other", "all", "each", "both", "everyone", "everybody"
   ]);
 
   const BANTER_PHRASES = [
     "get right into it", "seeing you guys", "hope you guys", "welcome to another", "what is going on",
     "doing well", "pretty much how you do", "that should be it", "pretty much all you have to do",
-    "in this video", "check it out", "other questions", "article on process st"
+    "in this video", "check it out", "other questions", "article on process st",
+    "let's talk about the project", "let's talk about", "talk about the project", "hello everyone"
   ];
 
   const actionItems: any[] = [];
@@ -383,40 +389,61 @@ function parseTranscriptDialogue(transcriptText: string) {
 
     for (const sent of sentences) {
       const sTrim = sent.trim();
-      if (!sTrim || sTrim.length < 5) continue;
+      if (!sTrim || sTrim.length < 4) continue;
 
       const sLower = sTrim.toLowerCase();
       if (BANTER_PHRASES.some((b) => sLower.includes(b))) {
         continue;
       }
 
+      // Check if this sentence is an urgency / due date modifier for the immediately preceding task
+      if (
+        actionItems.length > 0 &&
+        (sLower.includes("priority") || sLower.includes("under 24") || sLower.includes("asap") || sLower.includes("urgent") || sLower.includes("deadline"))
+      ) {
+        const lastTask = actionItems[actionItems.length - 1];
+        if (sLower.includes("most priority") || sLower.includes("high priority") || sLower.includes("urgent")) {
+          lastTask.priority = "Urgent";
+        }
+        if (sLower.includes("under 24") || sLower.includes("24 hours")) {
+          lastTask.due = "Under 24 hours";
+        }
+        continue;
+      }
+
       keyPoints.push(`${speaker}: ${sTrim}`);
 
-      // Delegation Pattern: "I need <Person> to <Task>" or "Ask <Person> to <Task>"
-      const delegMatch = sTrim.match(/(?:i need|i want|ask|request|have)\s+([A-Z][a-z]{1,15})\s+to\s+([^.,;]+)/i);
+      // 1. Direct address delegation: "Person A, you have to write..." / "Person B, please..." / "Talk to Person D you need to create..."
+      const directDelegMatch = sTrim.match(
+        /^(?:talk to\s+)?([A-Za-z][A-Za-z0-9]*(?:\s+[A-Za-z0-9]+)?)[,:]?\s*(?:you have to|you need to|you should|you must|please|can you|could you|needs to|must|will)\s+([^.,;]+)/i
+      );
 
-      // Vocative Pattern: "<Person>, please <Task>" or "<Person>, can you <Task>" or "<Person> should <Task>"
-      const vocativeMatch = sTrim.match(/^([A-Z][a-z]{1,15})[,:]?\s*(?:please|can you|could you|should|needs to|must)\s+([^.,;]+)/i);
+      // 2. Third-person delegation: "I need <Person> to <Task>" / "I want <Person> to <Task>" / "Ask <Person> to <Task>"
+      const thirdPersonDelegMatch = sTrim.match(
+        /(?:i need|i want|ask|request|have)\s+([A-Za-z][A-Za-z0-9]*(?:\s+[A-Za-z0-9]+)?)\s+to\s+([^.,;]+)/i
+      );
 
-      // Person will: "<Person> will <Task>"
-      const willMatch = sTrim.match(/([A-Z][a-z]{1,15})\s+(?:will|is going to|is handling)\s+([^.,;]+)/i);
+      // 3. Person will: "<Person> will <Task>"
+      const willMatch = sTrim.match(
+        /^([A-Za-z][A-Za-z0-9]*(?:\s+[A-Za-z0-9]+)?)\s+(?:will|is going to|is handling)\s+([^.,;]+)/i
+      );
 
-      // Self-commitment: "I will <Task>" or "I'll <Task>"
+      // 4. Self-commitment: "I will <Task>" or "I'll <Task>"
       const selfMatch = sTrim.match(/(?:i will|i'll|i am going to|i'm going to|my task is to)\s+([^.,;]+)/i);
 
-      // Action Item / We need to: "Action item: <Task>" or "We need to <Task>"
-      const generalMatch = sTrim.match(/(?:action item[:\-]?|we need to|we should|let's)\s+([^.,;]+)/i);
+      // 5. General match: "Action item: <Task>" or "We need to <Task>" (excluding conversational "let's talk about...")
+      const generalMatch = sTrim.match(/(?:action item[:\-]?|we need to|we should)\s+([^.,;]+)/i);
 
       let foundAssignee = "";
       let foundTask = "";
       let assignedBy = speaker;
 
-      if (delegMatch) {
-        foundAssignee = delegMatch[1].trim();
-        foundTask = delegMatch[2].trim();
-      } else if (vocativeMatch) {
-        foundAssignee = vocativeMatch[1].trim();
-        foundTask = vocativeMatch[2].trim();
+      if (directDelegMatch) {
+        foundAssignee = directDelegMatch[1].trim();
+        foundTask = directDelegMatch[2].trim();
+      } else if (thirdPersonDelegMatch) {
+        foundAssignee = thirdPersonDelegMatch[1].trim();
+        foundTask = thirdPersonDelegMatch[2].trim();
       } else if (willMatch && !INVALID_ASSIGNEES.has(willMatch[1].toLowerCase())) {
         foundAssignee = willMatch[1].trim();
         foundTask = willMatch[2].trim();
@@ -441,29 +468,34 @@ function parseTranscriptDialogue(transcriptText: string) {
         foundTask = foundTask.replace(/^(to\s+|please\s+)/i, "").trim();
         foundTask = foundTask.charAt(0).toUpperCase() + foundTask.slice(1);
 
+        let cleanAssignee = (foundAssignee || speaker)
+          .split(" ")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+
         let due = "2026-09-18";
         if (sLower.includes("friday")) due = "Before Friday";
         else if (sLower.includes("tomorrow")) due = "Tomorrow";
-        else if (sLower.includes("today") || sLower.includes("tonight") || sLower.includes("this afternoon")) due = "Today";
+        else if (sLower.includes("today") || sLower.includes("tonight") || sLower.includes("24 hours")) due = "Under 24 hours";
         else if (sLower.includes("next week") || sLower.includes("monday")) due = "Next Week";
         else if (sLower.includes("wednesday")) due = "Wednesday";
         else if (sLower.includes("thursday")) due = "Thursday";
 
         let priority: "Urgent" | "High" | "Medium" = "High";
-        if (sLower.includes("urgent") || sLower.includes("asap") || sLower.includes("today") || sLower.includes("blocking")) priority = "Urgent";
+        if (sLower.includes("urgent") || sLower.includes("asap") || sLower.includes("priority")) priority = "Urgent";
         else if (sLower.includes("next week") || sLower.includes("later")) priority = "Medium";
 
-        let category = "Engineering";
+        let category = "Operations";
         if (sLower.includes("design") || sLower.includes("figma") || sLower.includes("ui")) category = "Design";
         else if (sLower.includes("database") || sLower.includes("sql") || sLower.includes("query") || sLower.includes("index")) category = "Database";
         else if (sLower.includes("security") || sLower.includes("auth") || sLower.includes("token")) category = "Security";
         else if (sLower.includes("review") || sLower.includes("pr") || sLower.includes("pull request")) category = "Review";
-        else if (sLower.includes("customer") || sLower.includes("client")) category = "Customer Success";
+        else if (sLower.includes("code") || sLower.includes("reverse") || sLower.includes("dev")) category = "Engineering";
 
         actionItems.push({
           id: `t-${taskIndex++}`,
           text: foundTask.length > 70 ? foundTask.slice(0, 68) + "…" : foundTask,
-          assignee: foundAssignee || speaker,
+          assignee: cleanAssignee,
           assignedBy: assignedBy,
           due,
           priority,
@@ -471,7 +503,7 @@ function parseTranscriptDialogue(transcriptText: string) {
           completed: false,
         });
 
-        decisions.push(`${assignedBy} assigned ${foundAssignee}: "${foundTask.length > 45 ? foundTask.slice(0, 43) + "…" : foundTask}"`);
+        decisions.push(`${assignedBy} assigned ${cleanAssignee}: "${foundTask.length > 45 ? foundTask.slice(0, 43) + "…" : foundTask}"`);
       }
     }
   }
