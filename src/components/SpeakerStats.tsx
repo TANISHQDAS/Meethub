@@ -30,34 +30,34 @@ export default function SpeakerStats({
     <div className="space-y-5 text-[#060D17]">
       {/* High level Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="p-3.5 rounded-xl bg-[#EAF4EE] border border-[#8DB8A2] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-              <Smile className="w-4 h-4" />
+        <div className="p-3 rounded-xl bg-[#EAF4EE] border border-[#8DB8A2] flex flex-col justify-between gap-1.5 min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between gap-1 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0">
+                <Smile className="w-3.5 h-3.5" />
+              </div>
+              <p className="text-[11px] text-[#334155] font-bold truncate">Meeting Sentiment</p>
             </div>
-            <div>
-              <p className="text-[11px] text-[#334155] font-bold">Meeting Sentiment</p>
-              <h4 className="text-base font-extrabold text-[#060D17]">{sentimentScore}% Positive</h4>
-            </div>
+            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+              Constructive
+            </span>
           </div>
-          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-            Constructive
-          </span>
+          <h4 className="text-base font-extrabold text-[#060D17]">{sentimentScore}% Positive</h4>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-[#EAF4EE] border border-[#8DB8A2] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center font-bold">
-              <Flame className="w-4 h-4" />
+        <div className="p-3 rounded-xl bg-[#EAF4EE] border border-[#8DB8A2] flex flex-col justify-between gap-1.5 min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between gap-1 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="w-6 h-6 rounded-md bg-blue-100 text-blue-800 flex items-center justify-center font-bold shrink-0">
+                <Flame className="w-3.5 h-3.5" />
+              </div>
+              <p className="text-[11px] text-[#334155] font-bold truncate">Team Focus</p>
             </div>
-            <div>
-              <p className="text-[11px] text-[#334155] font-bold">Team Focus</p>
-              <h4 className="text-base font-extrabold text-[#060D17]">{engagementScore}/100</h4>
-            </div>
+            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300 shrink-0">
+              Active
+            </span>
           </div>
-          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
-            Active
-          </span>
+          <h4 className="text-base font-extrabold text-[#060D17]">{engagementScore}/100</h4>
         </div>
       </div>
 
@@ -68,7 +68,9 @@ export default function SpeakerStats({
             <Users className="w-4 h-4 text-[#2563EB]" />
             <span>Speaker Talk-Time Ratio</span>
           </div>
-          <span className="text-[11px] text-[#334155] font-semibold">{speakers.length} Speakers</span>
+          <span className="text-[11px] text-[#334155] font-semibold">
+            {speakers.length} {speakers.length === 1 ? "Speaker" : "Speakers"}
+          </span>
         </div>
 
         {/* Multi-segment progress bar */}

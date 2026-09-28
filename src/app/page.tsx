@@ -497,10 +497,21 @@ export default function MeetHubPage() {
   const [meetingSentiment, setMeetingSentiment] = useState<number>(92);
   const [teamFocus, setTeamFocus] = useState<number>(89);
 
+  const parseDurationToSecs = (timeStr: string): number => {
+    if (!timeStr) return 73;
+    const parts = timeStr.split(":").map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return parts[0] * 60 + parts[1];
+    }
+    const match = timeStr.match(/(\d+)\s*(?:m|min)/i);
+    if (match) return parseInt(match[1]) * 60;
+    return 73;
+  };
+
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60);
     const remainingSecs = secs % 60;
-    return `${mins.toString().padStart(2, "0")}:${remainingSecs.toString().padStart(2, "0")}`;
+    return `${mins}m ${remainingSecs}s`;
   };
 
   // Inline task editing state
@@ -512,7 +523,7 @@ export default function MeetHubPage() {
     title: activeMediaSource.title,
     date: "Today, 10:00 AM",
     duration: activeMediaSource.time,
-    durationSec: 1125,
+    durationSec: parseDurationToSecs(activeMediaSource.time),
     platform: "Google Meet",
     sentimentScore: meetingSentiment,
     engagementScore: teamFocus,
@@ -534,20 +545,26 @@ export default function MeetHubPage() {
       priority: t.priority === "Urgent" ? "High" : t.priority === "High" ? "Medium" : "Low",
       completed: t.status === "created",
     })),
-    speakers:
-      extractedSpeakers && extractedSpeakers.length > 0
-        ? extractedSpeakers
-        : activeMediaSource.participants.map((name, i) => {
-            const isSingle = activeMediaSource.participants.length === 1;
-            return {
-              name,
-              talkTimeSecs: isSingle ? 450 : Math.round(450 / Math.max(1, activeMediaSource.participants.length)),
-              percentage: isSingle ? 100 : Math.round(100 / Math.max(1, activeMediaSource.participants.length)),
-              wordsPerMinute: 140,
-              sentimentScore: 90,
-              color: ["#2563EB", "#06B6D4", "#10B981", "#8B5CF6"][i % 4],
-            };
-          }),
+    speakers: (() => {
+      const totalSecs = parseDurationToSecs(activeMediaSource.time);
+      if (extractedSpeakers && extractedSpeakers.length > 0) {
+        return extractedSpeakers.map((s) => ({
+          ...s,
+          talkTimeSecs: Math.round(((s.percentage || (100 / extractedSpeakers.length)) / 100) * totalSecs),
+        }));
+      }
+      return activeMediaSource.participants.map((name, i) => {
+        const isSingle = activeMediaSource.participants.length === 1;
+        return {
+          name,
+          talkTimeSecs: isSingle ? totalSecs : Math.round(totalSecs / Math.max(1, activeMediaSource.participants.length)),
+          percentage: isSingle ? 100 : Math.round(100 / Math.max(1, activeMediaSource.participants.length)),
+          wordsPerMinute: 140,
+          sentimentScore: 90,
+          color: ["#2563EB", "#06B6D4", "#10B981", "#8B5CF6"][i % 4],
+        };
+      });
+    })(),
     transcript: transcript.split("\n\n").map((line, idx) => {
       const colonIdx = line.indexOf(":");
       const speaker = colonIdx > -1 ? line.slice(0, colonIdx).trim() : "Speaker";
