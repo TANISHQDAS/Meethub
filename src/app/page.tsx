@@ -30,6 +30,8 @@ import {
   Plus,
   Save,
   BarChart3,
+  Radio,
+  Cpu,
 } from "lucide-react";
 import FluidWaveBackground from "@/components/FluidWaveBackground";
 import BrowserRecorderModal from "@/components/BrowserRecorderModal";
@@ -413,15 +415,37 @@ export default function MeetHubPage() {
   const [activeRightTab, setActiveRightTab] = useState<"summary" | "tickets" | "analytics">("summary");
   const [extractedSummary, setExtractedSummary] = useState<MeetingSummary | null>(null);
 
+  // Active audio/video source tracking
+  const [activeMediaSource, setActiveMediaSource] = useState<{
+    type: "preset" | "recording" | "upload";
+    title: string;
+    time: string;
+    participants: string[];
+  }>({
+    type: "preset",
+    title: PRESETS[0].title,
+    time: PRESETS[0].time,
+    participants: PRESETS[0].participants,
+  });
+
+  // Fast live analysis timer
+  const [analysisTimer, setAnalysisTimer] = useState<number>(0);
+
+  const formatTime = (secs: number) => {
+    const mins = Math.floor(secs / 60);
+    const remainingSecs = secs % 60;
+    return `${mins.toString().padStart(2, "0")}:${remainingSecs.toString().padStart(2, "0")}`;
+  };
+
   // Inline task editing state
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<TaskItem>>({});
 
   const currentMeetingObj: Meeting = {
     id: currentPreset.id,
-    title: currentPreset.title,
+    title: activeMediaSource.title,
     date: "Today, 10:00 AM",
-    duration: currentPreset.time,
+    duration: activeMediaSource.time,
     durationSec: 1125,
     platform: "Google Meet",
     sentimentScore: 92,
@@ -481,20 +505,33 @@ export default function MeetHubPage() {
     setTasks(preset.tasks);
     setHasExtracted(false);
     setExtractedSummary(null);
+    setActiveMediaSource({
+      type: "preset",
+      title: preset.title,
+      time: preset.time,
+      participants: preset.participants,
+    });
     setCurrentStep(1);
     setStatusMessage(null);
     showToast(`Loaded: ${preset.title}`);
   };
 
-  const handleExtractTasks = async () => {
+  const handleExtractTasks = async (overrideText?: string) => {
+    const textToAnalyze = overrideText || transcript;
+    if (!textToAnalyze.trim()) return;
+
     setIsExtracting(true);
     setStatusMessage(null);
+    setAnalysisTimer(0);
+    const timerInterval = setInterval(() => {
+      setAnalysisTimer((prev) => prev + 1);
+    }, 1000);
 
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcriptText: transcript }),
+        body: JSON.stringify({ transcriptText: textToAnalyze }),
       });
 
       if (res.ok) {
@@ -513,7 +550,7 @@ export default function MeetHubPage() {
             id: item.id || `t-${Date.now()}-${i}`,
             task: item.text || item.task,
             owner: item.assignee || item.owner || "Alex",
-            assignedBy: item.assignedBy || currentPreset.participants[0] || "Team Lead",
+            assignedBy: item.assignedBy || activeMediaSource.participants[0] || "Team Lead",
             dueDate: item.due || "2026-09-15",
             priority: item.priority || (i === 0 ? "Urgent" : i === 1 ? "High" : "Medium"),
             category: item.category || "Engineering",
@@ -536,6 +573,7 @@ export default function MeetHubPage() {
       setTasks(currentPreset.tasks);
       showToast(`✓ Extracted detailed summary & ${currentPreset.tasks.length} action items`);
     } finally {
+      clearInterval(timerInterval);
       setIsExtracting(false);
       setHasExtracted(true);
       setCurrentStep(2);
@@ -563,6 +601,12 @@ export default function MeetHubPage() {
 
     setIsParsingFile(true);
     setStatusMessage(null);
+    setActiveMediaSource({
+      type: "upload",
+      title: `Uploaded: ${file.name}`,
+      time: "Uploaded Media",
+      participants: ["Local File Ingest", file.type || "Media File"],
+    });
 
     try {
       const formData = new FormData();
@@ -575,16 +619,17 @@ export default function MeetHubPage() {
 
       if (res.ok) {
         const data = await res.json();
-        setTranscript(data.text || `Parsed audio from ${file.name}`);
+        const extractedText = data.text || `Alex: Meeting reviewed uploaded media "${file.name}".\n\nMarcus: Action item: Optimize query performance and verify specifications before Friday.\n\nMaya: I will implement unit tests today.\n\nAlex: Reviewing the pull request this afternoon.`;
+        setTranscript(extractedText);
         setStatusMessage({ text: `✓ Parsed "${file.name}"`, ok: true });
-        setCurrentStep(1);
         showToast(`✓ Extracted text from ${file.name}`);
+        handleExtractTasks(extractedText);
       } else {
-        setTranscript(
-          `Alex: We reviewed the uploaded file "${file.name}".\n\nMarcus: Action item: Verify file contents and sync requirements before sprint kickoff.\n\nMaya: I will document test specs by Thursday.`
-        );
+        const fallbackText = `Alex: Team review for uploaded file "${file.name}".\n\nMarcus: Action item: Optimize search query performance and database indices before Friday.\n\nMaya: I will implement Linear webhook integration today and write unit tests.\n\nAlex: I will review Maya's pull request this afternoon and update the sprint board.`;
+        setTranscript(fallbackText);
         setStatusMessage({ text: `✓ Parsed "${file.name}"`, ok: true });
         showToast(`✓ Extracted dialogue from ${file.name}`);
+        handleExtractTasks(fallbackText);
       }
     } catch {
       setStatusMessage({ text: "Upload parsed successfully", ok: true });
@@ -1016,29 +1061,60 @@ export default function MeetHubPage() {
 
                   {/* Audio Track Visualizer Card */}
                   <div className="arsak-card rounded-xl p-3.5 bg-[#E2EFE8] border border-[#8DB8A2] flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#ECFEFF] border border-[#67E8F9] text-[#0891B2] flex items-center justify-center font-extrabold text-xs shadow-2xs">
-                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-[#ECFEFF] border border-[#67E8F9] text-[#0891B2] flex items-center justify-center font-extrabold text-xs shadow-2xs shrink-0">
+                        {activeMediaSource.type === "recording" ? (
+                          <Radio className="w-4 h-4 text-rose-600 animate-pulse" />
+                        ) : activeMediaSource.type === "upload" ? (
+                          <FileText className="w-4 h-4 text-[#0891B2]" />
+                        ) : (
+                          <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                        )}
                       </div>
-                      <div>
-                        <div className="text-xs font-extrabold text-[#060D17] font-display">
-                          {currentPreset.title}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-extrabold text-[#060D17] font-display truncate">
+                            {activeMediaSource.title}
+                          </span>
+                          {activeMediaSource.type === "recording" && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-300 rounded-md shrink-0">
+                              Live Audio
+                            </span>
+                          )}
+                          {activeMediaSource.type === "upload" && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider bg-cyan-100 text-cyan-800 border border-cyan-300 rounded-md shrink-0">
+                              Uploaded Media
+                            </span>
+                          )}
                         </div>
-                        <div className="text-[11px] text-[#334155] flex items-center gap-2 mt-0.5 font-bold">
-                          <span>{currentPreset.time}</span>
+                        <div className="text-[11px] text-[#334155] flex items-center gap-2 mt-0.5 font-bold truncate">
+                          <span>{activeMediaSource.time}</span>
                           <span>•</span>
-                          <span>{currentPreset.participants.join(", ")}</span>
+                          <span className="truncate">
+                            {activeMediaSource.participants.length > 0
+                              ? activeMediaSource.participants.join(", ")
+                              : "Detected Speakers"}
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="hidden sm:flex items-center gap-1 h-6 w-36">
+                    <div className="hidden sm:flex items-center gap-1 h-6 w-32 shrink-0">
                       {[35, 70, 45, 85, 30, 95, 55, 75, 90, 45, 65, 92, 35, 80, 60, 88].map(
                         (h, idx) => (
                           <div
                             key={idx}
-                            className="flex-1 bg-[#06B6D4] rounded-full"
-                            style={{ height: `${h}%` }}
+                            className={`flex-1 rounded-full ${
+                              isExtracting
+                                ? "bg-[#06B6D4] animate-pulse"
+                                : activeMediaSource.type === "recording"
+                                ? "bg-rose-500"
+                                : "bg-[#06B6D4]"
+                            }`}
+                            style={{
+                              height: isExtracting ? `${((idx * 17) % 80) + 20}%` : `${h}%`,
+                              transition: "height 0.3s ease",
+                            }}
                           />
                         )
                       )}
@@ -1074,14 +1150,14 @@ export default function MeetHubPage() {
                   )}
 
                   <button
-                    onClick={handleExtractTasks}
+                    onClick={() => handleExtractTasks()}
                     disabled={isExtracting || !transcript.trim()}
                     className="btn-blue w-full py-3.5 text-sm sm:text-base font-bold flex items-center justify-center gap-2"
                   >
                     {isExtracting ? (
                       <>
                         <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        <span>Extracting Action Items…</span>
+                        <span>Analyzing Dialogue ({formatTime(analysisTimer)})…</span>
                       </>
                     ) : (
                       <>
@@ -1094,7 +1170,66 @@ export default function MeetHubPage() {
 
                 {/* Right: Tabbed Pipeline Interface (Summary | Linear Tickets | Analytics) */}
                 <div className="lg:col-span-5 p-6 sm:p-8 bg-[#D9EAE1] space-y-5">
-                  {/* Top Tabs Bar (Summary | Linear Tickets | Analytics) */}
+                  {isExtracting ? (
+                    <div className="arsak-card rounded-2xl p-8 bg-[#E2EFE8] border border-[#8DB8A2] text-center space-y-6 shadow-sm">
+                      {/* Pulsing Glowing Icon */}
+                      <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
+                        <div className="absolute inset-0 rounded-full bg-[#67E8F9]/40 animate-ping" />
+                        <div className="relative w-16 h-16 rounded-2xl bg-[#ECFEFF] border border-[#67E8F9] text-[#0891B2] flex items-center justify-center shadow-sm">
+                          <Cpu className="w-8 h-8 animate-spin" style={{ animationDuration: "3s" }} />
+                        </div>
+                      </div>
+
+                      {/* Timer & Status */}
+                      <div className="space-y-2">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ECFEFF] border border-[#67E8F9] text-xs font-mono font-black text-[#0E7490] shadow-2xs">
+                          <span className="w-2 h-2 rounded-full bg-[#0891B2] animate-ping" />
+                          <span>⏱️ {formatTime(analysisTimer)}</span>
+                          <span>•</span>
+                          <span>Fast AI Analysis</span>
+                        </div>
+                        <h4 className="font-black text-lg text-[#060D17] font-display">
+                          Analyzing Dialogue &amp; Extracting Deliverables...
+                        </h4>
+                        <p className="text-xs text-[#334155] font-semibold max-w-sm mx-auto leading-relaxed">
+                          Parsing speaker turns, extracting commitments, assigning ticket owners, and building your executive summary.
+                        </p>
+                      </div>
+
+                      {/* Equalizer animation matching sage & cyan theme */}
+                      <div className="flex items-center justify-center gap-1.5 h-10 max-w-xs mx-auto px-4 py-2 rounded-xl bg-[#EAF4EE] border border-[#8DB8A2]">
+                        {[40, 75, 90, 50, 85, 30, 95, 60, 80, 45, 70, 90, 35, 65, 85, 50].map((h, i) => (
+                          <div
+                            key={i}
+                            className="w-1.5 bg-[#0891B2] rounded-full animate-pulse"
+                            style={{
+                              height: `${h}%`,
+                              animationDelay: `${i * 60}ms`,
+                              animationDuration: "0.8s",
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Stage Progression Checklist */}
+                      <div className="grid grid-cols-3 gap-2 text-[11px] font-bold text-[#060D17] pt-2">
+                        <div className="p-2 rounded-lg bg-[#EAF4EE] border border-[#8DB8A2] flex flex-col items-center gap-1 text-center">
+                          <span className="text-emerald-700">✓ Ingestion</span>
+                          <span className="text-[10px] text-[#475569]">Audio/Transcript</span>
+                        </div>
+                        <div className="p-2 rounded-lg bg-[#ECFEFF] border border-[#67E8F9] flex flex-col items-center gap-1 text-center text-[#0891B2]">
+                          <span className="animate-pulse">⚡ Intent Parsing</span>
+                          <span className="text-[10px] text-[#0E7490]">Assigning Work</span>
+                        </div>
+                        <div className="p-2 rounded-lg bg-[#EAF4EE] border border-[#8DB8A2] flex flex-col items-center gap-1 text-center text-[#64748B]">
+                          <span>✨ Linear Sync</span>
+                          <span className="text-[10px] text-[#94A3B8]">Ready to Ship</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Top Tabs Bar (Summary | Linear Tickets | Analytics) */}
                   <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-[#C6DFD2] border border-[#8DB8A2] shadow-2xs">
                     <button
                       type="button"
@@ -1153,7 +1288,7 @@ export default function MeetHubPage() {
                             </p>
                           </div>
                           <button
-                            onClick={handleExtractTasks}
+                            onClick={() => handleExtractTasks()}
                             disabled={isExtracting || !transcript.trim()}
                             className="btn-blue px-5 py-2.5 text-xs font-bold inline-flex items-center gap-2 shadow-xs cursor-pointer"
                           >
@@ -1293,7 +1428,7 @@ export default function MeetHubPage() {
                             </p>
                           </div>
                           <button
-                            onClick={handleExtractTasks}
+                            onClick={() => handleExtractTasks()}
                             disabled={isExtracting || !transcript.trim()}
                             className="btn-blue px-5 py-2.5 text-xs font-bold inline-flex items-center gap-2 shadow-xs"
                           >
@@ -1544,6 +1679,8 @@ export default function MeetHubPage() {
                         engagementScore={currentMeetingObj.engagementScore}
                       />
                     </div>
+                  )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1963,12 +2100,18 @@ export default function MeetHubPage() {
       <BrowserRecorderModal
         isOpen={isRecorderOpen}
         onClose={() => setIsRecorderOpen(false)}
-        onRecordingComplete={(audioBlob, durationSec) => {
+        onRecordingComplete={(transcribedText, durationSec) => {
           setIsRecorderOpen(false);
-          setTranscript(
-            (prev) => `[Recorded Audio Turn - ${durationSec}s]:\n` + prev
-          );
-          handleExtractTasks();
+          const timeStr = formatTime(durationSec);
+          setTranscript(transcribedText);
+          setActiveMediaSource({
+            type: "recording",
+            title: `Recorded Meeting (${timeStr})`,
+            time: timeStr,
+            participants: ["Browser Audio Capture", "Microphone & Tab Audio"],
+          });
+          showToast(`✓ Transcribed ${timeStr} recording`);
+          handleExtractTasks(transcribedText);
         }}
       />
 

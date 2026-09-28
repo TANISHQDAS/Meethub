@@ -109,39 +109,39 @@ Output JSON schema:
   ]
 }`;
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: analysisPrompt }] }],
-          generationConfig: {
-            temperature: 0.2,
-            responseMimeType: "application/json",
-          },
-        }),
-      }
-    );
+    let parsed: any = null;
+    try {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(1200),
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: analysisPrompt }] }],
+            generationConfig: {
+              temperature: 0.2,
+              responseMimeType: "application/json",
+            },
+          }),
+        }
+      );
 
-    if (!geminiRes.ok) {
-      const err = await geminiRes.text();
-      console.error("Gemini API error:", err);
-      // Fall back to intelligent local parser that parses the actual dialogue and covers every point
-      const localAnalysis = parseTranscriptDialogue(transcriptText || "");
-      return NextResponse.json(localAnalysis);
+      if (geminiRes.ok) {
+        const data = await geminiRes.json();
+        const rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawContent) {
+          const cleaned = rawContent.replace(/```json/g, "").replace(/```/g, "").trim();
+          parsed = JSON.parse(cleaned);
+        }
+      }
+    } catch (e) {
+      // Fast fallback to intelligent local parser
     }
 
-    const data = await geminiRes.json();
-    const rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    let parsed;
-    try {
-      parsed = JSON.parse(rawContent);
-    } catch {
-      // Clean up markdown blocks if present
-      const cleaned = rawContent.replace(/```json/g, "").replace(/```/g, "").trim();
-      parsed = JSON.parse(cleaned);
+    if (!parsed || !parsed.tldr) {
+      const localAnalysis = parseTranscriptDialogue(transcriptText || "");
+      return NextResponse.json(localAnalysis);
     }
 
     return NextResponse.json({

@@ -32,40 +32,52 @@ export default function DashboardPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<string>("");
 
-  const handleProcessAudio = async (audioBlob: Blob | File, durationSec?: number) => {
+  const handleProcessAudio = async (
+    input: string | Blob | File,
+    durationSec?: number,
+    utterances?: any[]
+  ) => {
     setIsProcessing(true);
-    setProcessingStep("Transcribing audio with Groq Whisper-large-v3...");
 
     try {
-      const formData = new FormData();
-      formData.append("file", audioBlob, "meeting_recording.webm");
+      let text = typeof input === "string" ? input : "";
+      let resolvedUtterances = utterances;
+      let audioBlobUrl = "";
 
-      const transcribeRes = await fetch("/api/transcribe", {
-        method: "POST",
-        body: formData,
-      });
-
-      let transcriptData;
-      if (transcribeRes.ok) {
-        transcriptData = await transcribeRes.json();
-      } else {
-        transcriptData = {
-          text: "Today we reviewed project deliverables and aligned our roadmap for the next quarter.",
-          utterances: [
-            {
-              id: "turn-1",
-              speaker: "You",
-              start: 0,
-              end: durationSec || 30,
-              timestamp: "00:00",
-              text: "Meeting audio captured successfully via MeetHub One-Click Browser Recorder.",
-              sentiment: "positive",
-            },
-          ],
-        };
+      if (typeof input !== "string") {
+        setProcessingStep("Transcribing audio with Groq Whisper...");
+        audioBlobUrl = URL.createObjectURL(input);
+        const formData = new FormData();
+        formData.append("file", input, "meeting_recording.webm");
+        const transcribeRes = await fetch("/api/transcribe", {
+          method: "POST",
+          body: formData,
+        });
+        if (transcribeRes.ok) {
+          const tData = await transcribeRes.json();
+          text = tData.text;
+          resolvedUtterances = tData.utterances;
+        } else {
+          text = "Meeting discussion and action item planning.";
+        }
       }
 
-      setProcessingStep("Extracting Linear action items & decisions with Gemini 1.5 Flash...");
+      setProcessingStep("Extracting Linear action items & decisions with Fast AI...");
+
+      const transcriptData = {
+        text: text || "Meeting discussion and action item planning.",
+        utterances: resolvedUtterances && resolvedUtterances.length > 0 ? resolvedUtterances : [
+          {
+            id: "turn-1",
+            speaker: "You",
+            start: 0,
+            end: durationSec || 30,
+            timestamp: "00:00",
+            text: text || "Meeting audio captured successfully via MeetHub.",
+            sentiment: "positive",
+          },
+        ],
+      };
 
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
@@ -129,7 +141,7 @@ export default function DashboardPage() {
         duration: durationSec ? `${Math.floor(durationSec / 60)}m ${durationSec % 60}s` : "12m 40s",
         durationSec: durationSec || 760,
         platform: "In-Person Recording",
-        audioUrl: URL.createObjectURL(audioBlob),
+        audioUrl: "",
         sentimentScore: aiData.sentimentScore || 90,
         engagementScore: aiData.engagementScore || 92,
         summary: aiData.summary,
