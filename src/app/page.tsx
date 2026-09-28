@@ -40,7 +40,7 @@ import AskAIModal from "@/components/AskAIModal";
 import SpeakerStats from "@/components/SpeakerStats";
 import { SAMPLE_MEETINGS } from "@/lib/sampleData";
 import { Meeting, SpeakerStat } from "@/types";
-import { downloadExecutiveAuditPdf } from "@/lib/pdfGenerator";
+import { downloadExecutiveAuditPdf, downloadSummaryPdf, downloadTicketsPdf } from "@/lib/pdfGenerator";
 
 interface TaskItem {
   id: string;
@@ -948,17 +948,45 @@ export default function MeetHubPage() {
         extractedSummary?.tldr ||
         `Strategic review of ${activeTitle}. Key discussion priorities confirmed, technical dependencies resolved, and deliverables tracked with Linear issue keys.`;
 
-      downloadExecutiveAuditPdf({
+      downloadSummaryPdf({
         meetingTitle: activeTitle,
-        date: "Today, 10:00 AM",
+        date: new Date().toLocaleDateString(),
         duration: activeDuration,
         participants: activeParticipants,
         summary: activeSummary,
+        keyPoints: extractedSummary?.keyPoints,
+        decisions: extractedSummary?.decisions,
         tasks: tasks.length > 0 ? tasks : currentPreset.tasks,
       });
-      showToast("✓ Detailed Executive Audit PDF downloaded successfully!");
+      showToast("✓ Summary PDF downloaded successfully!");
     } catch {
       showToast("Failed to generate PDF report.");
+    }
+  };
+
+  const handleExportTicketsPdf = () => {
+    try {
+      const activeTitle = activeMediaSource.title || currentPreset.title;
+      const activeDuration = activeMediaSource.time || currentPreset.time;
+      const activeParticipants =
+        extractedSpeakers && extractedSpeakers.length > 0
+          ? extractedSpeakers.map((s) => s.name)
+          : activeMediaSource.participants &&
+            activeMediaSource.participants.length > 0 &&
+            !activeMediaSource.participants[0].includes("Detecting")
+          ? activeMediaSource.participants
+          : currentPreset.participants;
+
+      downloadTicketsPdf({
+        meetingTitle: activeTitle,
+        date: new Date().toLocaleDateString(),
+        duration: activeDuration,
+        participants: activeParticipants,
+        tasks: tasks.length > 0 ? tasks : currentPreset.tasks,
+      });
+      showToast("✓ Tickets PDF downloaded successfully!");
+    } catch {
+      showToast("Failed to generate tickets PDF.");
     }
   };
 
@@ -1645,6 +1673,14 @@ export default function MeetHubPage() {
                             >
                               <Plus className="w-3.5 h-3.5 text-current" />
                               <span>Add Task</span>
+                            </button>
+                            <button
+                              onClick={handleExportTicketsPdf}
+                              className="btn-secondary-blue px-2.5 py-1 text-xs font-bold flex items-center gap-1.5 shadow-2xs"
+                              title="Download Tickets as PDF"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-current" />
+                              <span>PDF</span>
                             </button>
                             {pendingCount > 0 && (
                               <button

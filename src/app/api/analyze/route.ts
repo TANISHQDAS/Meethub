@@ -375,7 +375,14 @@ function parseTranscriptDialogue(transcriptText: string) {
     "get right into it", "seeing you guys", "hope you guys", "welcome to another", "what is going on",
     "doing well", "pretty much how you do", "that should be it", "pretty much all you have to do",
     "in this video", "check it out", "other questions", "article on process st",
-    "let's talk about the project", "let's talk about", "talk about the project", "hello everyone"
+    "let's talk about the project", "let's talk about", "talk about the project", "hello everyone",
+    // casual movement / filler phrases (prevent selfMatch false positives)
+    "going to go get", "going to grab", "going to head out", "going to be right back",
+    "going to check on", "going to step out", "going to take a", "going to get some",
+    "going to go ahead", "going to jump off", "going to log off", "going to drop off",
+    "gonna go", "gonna grab", "gonna head", "gonna step",
+    "be right back", "brb", "give me a sec", "one moment", "just a second",
+    "see you later", "talk later", "catch you later", "have a good one", "take care",
   ];
 
   const actionItems: any[] = [];
@@ -448,8 +455,13 @@ function parseTranscriptDialogue(transcriptText: string) {
         foundAssignee = willMatch[1].trim();
         foundTask = willMatch[2].trim();
       } else if (selfMatch) {
-        foundAssignee = speaker;
-        foundTask = selfMatch[1].trim();
+        const candidateTask = selfMatch[1].trim();
+        // Reject very short or casual movement/filler phrases captured by selfMatch
+        const movementPhrases = /^(?:go get|go grab|go to|go ahead|go check|step out|head out|get some|grab some|be right|log off|jump off|drop off)/i;
+        if (candidateTask.length >= 15 && !movementPhrases.test(candidateTask)) {
+          foundAssignee = speaker;
+          foundTask = candidateTask;
+        }
       } else if (generalMatch) {
         foundAssignee = speakersList.length > 1 ? (speakersList[1] || speaker) : speaker;
         foundTask = generalMatch[1].trim();
@@ -464,7 +476,7 @@ function parseTranscriptDialogue(transcriptText: string) {
         foundTask = "";
       }
 
-      if (foundTask && foundTask.length > 4) {
+      if (foundTask && foundTask.length > 10) {
         foundTask = foundTask.replace(/^(to\s+|please\s+)/i, "").trim();
         foundTask = foundTask.charAt(0).toUpperCase() + foundTask.slice(1);
 
