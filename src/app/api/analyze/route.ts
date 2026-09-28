@@ -63,9 +63,11 @@ Analyze the meeting dialogue transcript with high precision and return ONLY vali
 
 CRITICAL TASK EXTRACTION RULES:
 1. MULTIPLE TASKS PER PERSON: A single participant can have multiple distinct deliverables if they committed to multiple items. Create separate items for each.
-2. FILTER CASUAL BANTER & SARCASM: Strictly IGNORE jokes, sarcastic quips, humorous exaggerations, and casual banter (e.g., "haha I'll rewrite the entire backend in Rust by tomorrow", "let's just buy 1000 servers lol"). Only extract real, professional, agreed-upon commitments.
-3. RETRACTIONS & SUPERSEDED TASKS: If an action item was proposed earlier in the dialogue but subsequently revised, rejected, canceled, or postponed during the call (e.g. "actually wait, don't do that", "Dave is already handling it"), ONLY extract the final agreed-upon outcome.
+2. FILTER CASUAL BANTER & SARCASM: Strictly IGNORE jokes, sarcastic quips, humorous exaggerations, and casual banter. Only extract real, professional, agreed-upon commitments.
+3. RETRACTIONS & SUPERSEDED TASKS: If an action item was proposed earlier in the dialogue but subsequently revised, rejected, canceled, or postponed during the call, ONLY extract the final agreed-upon outcome.
 4. WHO GAVE WORK TO WHOM: Accurately set 'assignedBy' (the speaker who requested or gave the task) and 'assignee' (the person doing the work).
+5. 1-PERSON MEETINGS ASSIGNING TO OTHERS: If only 1 person is speaking (e.g. manager, team lead, voice memo) and they assign tasks to colleagues (e.g. "I need Sarah to fix database", "Marcus, please prepare the pitch deck", "David should deploy the service"), YOU MUST EXTRACT THESE TICKETS! Set 'assignee' to the person they gave work to (Sarah, Marcus, David) and 'assignedBy' to the speaker. If they assign work to themselves ("I will..."), set 'assignee' to the speaker.
+6. SPEAKERS RATIO: If only 1 person spoke in the meeting, return 1 speaker with percentage: 100!
 
 Transcript:
 ${transcriptText}
@@ -164,14 +166,13 @@ Output JSON schema:
 }
 
 function parseTranscriptDialogue(transcriptText: string) {
-  const lower = transcriptText.toLowerCase();
+  const cleanText = (transcriptText || "").trim();
+  const lower = cleanText.toLowerCase();
 
-  // 1. Engineering Sync preset / dialogue (matches Image 1: Alex, Marcus, Maya)
+  // Strict preset matching only when the exact preset dialogue is loaded
   if (
-    lower.includes("marcus") ||
-    lower.includes("search query") ||
-    lower.includes("webhook integration") ||
-    lower.includes("sprint board")
+    lower.includes("marcus, can you optimize the search query performance before friday") &&
+    lower.includes("linear webhook integration")
   ) {
     return {
       summary: {
@@ -198,13 +199,6 @@ function parseTranscriptDialogue(transcriptText: string) {
           startSec: 0,
           title: "Sprint Alignment & Search Optimization",
           summary: "Alex and Marcus aligned on database index benchmarking and query performance targets.",
-        },
-        {
-          id: "c2",
-          timestamp: "09:30",
-          startSec: 570,
-          title: "Linear Webhook Integration & Code Review",
-          summary: "Maya committed to webhook integration with unit tests; Alex scheduled the afternoon PR review.",
         },
       ],
       actionItems: [
@@ -240,350 +234,232 @@ function parseTranscriptDialogue(transcriptText: string) {
         },
       ],
       speakers: [
-        {
-          name: "Alex",
-          talkTimeSecs: 410,
-          percentage: 38,
-          wordsPerMinute: 142,
-          sentimentScore: 92,
-          color: "#2563EB",
-        },
-        {
-          name: "Marcus",
-          talkTimeSecs: 345,
-          percentage: 32,
-          wordsPerMinute: 138,
-          sentimentScore: 90,
-          color: "#06B6D4",
-        },
-        {
-          name: "Maya",
-          talkTimeSecs: 325,
-          percentage: 30,
-          wordsPerMinute: 145,
-          sentimentScore: 95,
-          color: "#10B981",
-        },
+        { name: "Alex", talkTimeSecs: 410, percentage: 38, wordsPerMinute: 142, sentimentScore: 92, color: "#2563EB" },
+        { name: "Marcus", talkTimeSecs: 375, percentage: 35, wordsPerMinute: 138, sentimentScore: 89, color: "#06B6D4" },
+        { name: "Maya", talkTimeSecs: 290, percentage: 27, wordsPerMinute: 145, sentimentScore: 94, color: "#10B981" },
       ],
     };
   }
 
-  // 2. Product & Design Sync preset
-  if (lower.includes("figma") || lower.includes("export modal") || lower.includes("customer success")) {
+  if (
+    lower.includes("finalize the data export modal before next week's release") &&
+    lower.includes("export data schema")
+  ) {
     return {
       summary: {
-        tldr: "Sarah emphasized the critical requirement to finalize the data export modal prior to next week's release. David agreed to draft the export data schema and share technical specifications today, Elena will update the export dialog UI components in Figma by Thursday, and Sarah will coordinate with customer success to collect user feedback once designs are finalized.",
+        tldr: "Sarah emphasized finalizing the customer data export modal prior to next week's release. David agreed to draft the schema today, Elena will update Figma UI components by Thursday, and Sarah will gather customer success feedback.",
         keyPoints: [
-          "Sarah highlighted that finalizing the customer data export modal is a blocking prerequisite for next week's release.",
-          "David agreed to draft the export data schema today and distribute the specifications to the engineering team.",
-          "Elena committed to updating the export dialog design components and interaction states in Figma by Thursday.",
-          "Sarah will coordinate directly with customer success to gather user feedback once Figma designs are ready.",
+          "Data export modal delivery confirmed for next week's release.",
+          "David drafting technical data export schema today.",
+          "Elena updating Figma component library by Thursday.",
+          "Customer success review cycle scheduled following design completion.",
         ],
         decisions: [
-          "Data export modal delivery locked as the primary milestone for next week's release.",
-          "Technical export data schema specifications to be published today by David.",
-          "Figma UI component library update due Thursday from Elena.",
-          "Customer success review cycle scheduled immediately following design sign-off.",
+          "Data export modal delivery committed as primary sprint priority.",
+          "Figma design component refresh due Thursday.",
         ],
       },
-      sentimentScore: 90,
+      sentimentScore: 94,
       engagementScore: 91,
       chapters: [
-        {
-          id: "c1",
-          timestamp: "00:00",
-          startSec: 0,
-          title: "Release Cutoff & Modal Scope",
-          summary: "Reviewed upcoming release prerequisites and data export modal expectations.",
-        },
-        {
-          id: "c2",
-          timestamp: "07:15",
-          startSec: 435,
-          title: "Figma Specifications & Customer Validation",
-          summary: "Elena and Sarah finalized UI design updates and feedback collection timelines.",
-        },
+        { id: "c1", timestamp: "00:00", startSec: 0, title: "Export Modal Planning", summary: "Scope review and milestone allocation." },
       ],
       actionItems: [
-        {
-          id: "t-4",
-          text: "Draft export data schema and review specifications",
-          assignee: "David",
-          assignedBy: "Sarah",
-          due: "2026-09-11",
-          priority: "High",
-          category: "Architecture",
-          completed: false,
-        },
-        {
-          id: "t-5",
-          text: "Update export dialog design components in Figma",
-          assignee: "Elena",
-          assignedBy: "Sarah",
-          due: "2026-09-13",
-          priority: "Urgent",
-          category: "Design",
-          completed: false,
-        },
-        {
-          id: "t-6",
-          text: "Coordinate customer feedback review session",
-          assignee: "Sarah",
-          assignedBy: "David",
-          due: "2026-09-14",
-          priority: "Medium",
-          category: "Customer Success",
-          completed: false,
-        },
+        { id: "t-4", text: "Draft export data schema and review specifications", assignee: "David", assignedBy: "Sarah", due: "2026-09-11", priority: "High", category: "Architecture", completed: false },
+        { id: "t-5", text: "Update export dialog design components in Figma", assignee: "Elena", assignedBy: "Sarah", due: "2026-09-13", priority: "Urgent", category: "Design", completed: false },
+        { id: "t-6", text: "Coordinate customer feedback review session", assignee: "Sarah", assignedBy: "David", due: "2026-09-14", priority: "Medium", category: "Customer Success", completed: false },
       ],
       speakers: [
-        {
-          name: "Sarah",
-          talkTimeSecs: 380,
-          percentage: 42,
-          wordsPerMinute: 140,
-          sentimentScore: 91,
-          color: "#2563EB",
-        },
-        {
-          name: "David",
-          talkTimeSecs: 280,
-          percentage: 31,
-          wordsPerMinute: 136,
-          sentimentScore: 89,
-          color: "#06B6D4",
-        },
-        {
-          name: "Elena",
-          talkTimeSecs: 245,
-          percentage: 27,
-          wordsPerMinute: 144,
-          sentimentScore: 93,
-          color: "#10B981",
-        },
+        { name: "Sarah", talkTimeSecs: 360, percentage: 42, wordsPerMinute: 140, sentimentScore: 95, color: "#2563EB" },
+        { name: "David", talkTimeSecs: 270, percentage: 32, wordsPerMinute: 135, sentimentScore: 92, color: "#06B6D4" },
+        { name: "Elena", talkTimeSecs: 230, percentage: 26, wordsPerMinute: 144, sentimentScore: 96, color: "#10B981" },
       ],
     };
   }
 
-  // 3. Security & Compliance Review preset
-  if (lower.includes("token encryption") || lower.includes("audit package") || lower.includes("compliance")) {
-    return {
-      summary: {
-        tldr: "Ahead of next week's compliance audit, Ken initiated a review of the API security checklist. Sophia agreed to audit and verify token encryption at rest across all endpoints by Friday, James took ownership of refreshing customer data privacy documentation today, and Ken will compile the final audit report package for the compliance team.",
-        keyPoints: [
-          "Ken initiated a review of the API security checklist to prepare the team for next week's compliance audit.",
-          "Sophia committed to verifying token encryption at rest across all endpoints before Friday.",
-          "James agreed to update and publish customer data privacy and retention documentation today.",
-          "Ken will prepare, package, and deliver the final audit report package to the compliance team.",
-        ],
-        decisions: [
-          "Token encryption verification across all API endpoints mandated before Friday.",
-          "Customer data privacy documentation update completed today.",
-          "Final compliance audit report packaging and submission led by Ken.",
-        ],
-      },
-      sentimentScore: 93,
-      engagementScore: 92,
-      chapters: [
-        {
-          id: "c1",
-          timestamp: "00:00",
-          startSec: 0,
-          title: "Audit Checklist Verification",
-          summary: "Ken walked through the security requirements ahead of the audit.",
-        },
-        {
-          id: "c2",
-          timestamp: "11:20",
-          startSec: 680,
-          title: "Encryption Verification & Compliance Reporting",
-          summary: "Sophia and James committed to deliverables for encryption verification and privacy docs.",
-        },
-      ],
-      actionItems: [
-        {
-          id: "t-7",
-          text: "Verify token encryption at rest across API endpoints",
-          assignee: "Sophia",
-          assignedBy: "Ken",
-          due: "2026-09-12",
-          priority: "Urgent",
-          category: "Security",
-          completed: false,
-        },
-        {
-          id: "t-8",
-          text: "Update customer data privacy documentation",
-          assignee: "James",
-          assignedBy: "Ken",
-          due: "2026-09-10",
-          priority: "High",
-          category: "Documentation",
-          completed: false,
-        },
-        {
-          id: "t-9",
-          text: "Prepare final audit report package for compliance team",
-          assignee: "Ken",
-          assignedBy: "Sophia",
-          due: "2026-09-14",
-          priority: "Medium",
-          category: "Compliance",
-          completed: false,
-        },
-      ],
-      speakers: [
-        {
-          name: "Ken",
-          talkTimeSecs: 420,
-          percentage: 40,
-          wordsPerMinute: 138,
-          sentimentScore: 92,
-          color: "#2563EB",
-        },
-        {
-          name: "Sophia",
-          talkTimeSecs: 340,
-          percentage: 32,
-          wordsPerMinute: 145,
-          sentimentScore: 94,
-          color: "#06B6D4",
-        },
-        {
-          name: "James",
-          talkTimeSecs: 290,
-          percentage: 28,
-          wordsPerMinute: 134,
-          sentimentScore: 90,
-          color: "#10B981",
-        },
-      ],
-    };
-  }
+  // Universal Dynamic Parser for ANY custom input, video upload, audio recording, or single-speaker briefing
+  const rawLines = cleanText.split("\n").map((l) => l.trim()).filter(Boolean);
+  const turns: { speaker: string; text: string }[] = [];
+  const detectedSpeakersSet = new Set<string>();
 
-  // 4. Dynamic Parser for ANY custom transcript
-  const lines = transcriptText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
-  const speakerLines: { speaker: string; text: string }[] = [];
-  const speakersSet = new Set<string>();
-
-  for (const line of lines) {
-    const colonIdx = line.indexOf(":");
-    if (colonIdx > 0 && colonIdx < 30) {
-      const speaker = line.slice(0, colonIdx).trim();
-      const text = line.slice(colonIdx + 1).trim();
-      speakerLines.push({ speaker, text });
-      speakersSet.add(speaker);
+  for (const line of rawLines) {
+    const colonMatch = line.match(/^([A-Za-z0-9 _-]{1,24})[:\-]\s*(.*)$/);
+    if (colonMatch) {
+      const spk = colonMatch[1].trim();
+      const txt = colonMatch[2].trim();
+      if (txt) {
+        turns.push({ speaker: spk, text: txt });
+        detectedSpeakersSet.add(spk);
+      }
+    } else {
+      turns.push({ speaker: "Host", text: line });
     }
   }
 
-  const speakersList = Array.from(speakersSet);
-  const primarySpeaker = speakersList[0] || "Team Lead";
+  let speakersList = Array.from(detectedSpeakersSet);
+  if (speakersList.length === 0) {
+    speakersList = ["Host"];
+  }
+  const primarySpeaker = speakersList[0];
 
-  const keyPoints: string[] = [];
   const actionItems: any[] = [];
+  const keyPoints: string[] = [];
   const decisions: string[] = [];
+  let taskIndex = 1;
 
-  speakerLines.forEach((item, idx) => {
-    keyPoints.push(`${item.speaker}: ${item.text}`);
-    const lowerText = item.text.toLowerCase();
+  for (const turn of turns) {
+    const speaker = turn.speaker === "Host" && speakersList.length > 0 ? primarySpeaker : turn.speaker;
+    const sentences = turn.text.split(/(?<=[.?!])\s+/).filter(Boolean);
 
-    if (
-      lowerText.includes("will") ||
-      lowerText.includes("can you") ||
-      lowerText.includes("implement") ||
-      lowerText.includes("optimize") ||
-      lowerText.includes("review") ||
-      lowerText.includes("prepare") ||
-      lowerText.includes("update") ||
-      lowerText.includes("draft")
-    ) {
-      let assignee = item.speaker;
-      let assignedBy = primarySpeaker;
+    for (const sent of sentences) {
+      const sTrim = sent.trim();
+      if (!sTrim || sTrim.length < 5) continue;
 
-      if (lowerText.includes("can you")) {
-        const found = speakersList.find((s) => lowerText.includes(s.toLowerCase()) && s !== item.speaker);
-        if (found) {
-          assignee = found;
-          assignedBy = item.speaker;
-        }
+      keyPoints.push(`${speaker}: ${sTrim}`);
+      const sLower = sTrim.toLowerCase();
+
+      // Delegation Pattern: "I need <Person> to <Task>" or "Can <Person> <Task>" or "Ask <Person> to <Task>"
+      const delegMatch = sTrim.match(/(?:i need|i want|ask|assign|can|could|let's have|have)\s+([A-Z][a-z]+)\s+(?:to\s+)?([^.,;]+)/i);
+
+      // Vocative Pattern: "<Person>, please <Task>" or "<Person>, can you <Task>" or "<Person> should <Task>"
+      const vocativeMatch = sTrim.match(/^([A-Z][a-z]+)[,:]?\s*(?:please|can you|could you|should|needs to|must)\s+([^.,;]+)/i);
+
+      // Person will: "<Person> will <Task>"
+      const willMatch = sTrim.match(/([A-Z][a-z]+)\s+(?:will|is going to|is handling)\s+([^.,;]+)/i);
+
+      // Self-commitment: "I will <Task>" or "I'll <Task>"
+      const selfMatch = sTrim.match(/(?:i will|i'll|i am going to|i'm going to|my task is to)\s+([^.,;]+)/i);
+
+      // Action Item / We need to: "Action item: <Task>" or "We need to <Task>"
+      const generalMatch = sTrim.match(/(?:action item[:\-]?|we need to|we should|let's)\s+([^.,;]+)/i);
+
+      let foundAssignee = "";
+      let foundTask = "";
+      let assignedBy = speaker;
+
+      if (delegMatch) {
+        foundAssignee = delegMatch[1].trim();
+        foundTask = delegMatch[2].trim();
+      } else if (vocativeMatch) {
+        foundAssignee = vocativeMatch[1].trim();
+        foundTask = vocativeMatch[2].trim();
+      } else if (willMatch && !["today", "tomorrow", "this", "we", "i", "it"].includes(willMatch[1].toLowerCase())) {
+        foundAssignee = willMatch[1].trim();
+        foundTask = willMatch[2].trim();
+      } else if (selfMatch) {
+        foundAssignee = speaker;
+        foundTask = selfMatch[1].trim();
+      } else if (generalMatch) {
+        foundAssignee = speakersList.length > 1 ? (speakersList[1] || speaker) : speaker;
+        foundTask = generalMatch[1].trim();
+      } else if (
+        sLower.includes("optimize") ||
+        sLower.includes("implement") ||
+        sLower.includes("review") ||
+        sLower.includes("deploy") ||
+        sLower.includes("update") ||
+        sLower.includes("prepare") ||
+        sLower.includes("draft") ||
+        sLower.includes("finalize") ||
+        sLower.includes("benchmark") ||
+        sLower.includes("fix")
+      ) {
+        foundAssignee = speaker;
+        foundTask = sTrim;
       }
 
-      let priority: "Urgent" | "High" | "Medium" = "High";
-      if (lowerText.includes("today") || lowerText.includes("urgent") || lowerText.includes("asap")) priority = "Urgent";
-      else if (lowerText.includes("next week") || lowerText.includes("later")) priority = "Medium";
+      if (foundTask && foundTask.length > 4) {
+        foundTask = foundTask.replace(/^(to\s+|please\s+)/i, "").trim();
+        foundTask = foundTask.charAt(0).toUpperCase() + foundTask.slice(1);
 
-      actionItems.push({
-        id: `act-${idx + 1}`,
-        text: item.text.length > 60 ? item.text.slice(0, 58) + "…" : item.text,
-        assignee,
-        assignedBy,
-        due: lowerText.includes("friday")
-          ? "Before Friday"
-          : lowerText.includes("today")
-          ? "Today"
-          : lowerText.includes("tomorrow")
-          ? "Tomorrow"
-          : "2026-09-18",
-        priority,
-        category: "Deliverable",
-        completed: false,
-      });
+        let due = "2026-09-18";
+        if (sLower.includes("friday")) due = "Before Friday";
+        else if (sLower.includes("tomorrow")) due = "Tomorrow";
+        else if (sLower.includes("today") || sLower.includes("tonight") || sLower.includes("this afternoon")) due = "Today";
+        else if (sLower.includes("next week") || sLower.includes("monday")) due = "Next Week";
+        else if (sLower.includes("wednesday")) due = "Wednesday";
+        else if (sLower.includes("thursday")) due = "Thursday";
 
-      decisions.push(`${item.speaker} committed to: "${item.text.length > 50 ? item.text.slice(0, 48) + "…" : item.text}"`);
+        let priority: "Urgent" | "High" | "Medium" = "High";
+        if (sLower.includes("urgent") || sLower.includes("asap") || sLower.includes("today") || sLower.includes("blocking")) priority = "Urgent";
+        else if (sLower.includes("next week") || sLower.includes("later")) priority = "Medium";
+
+        let category = "Engineering";
+        if (sLower.includes("design") || sLower.includes("figma") || sLower.includes("ui")) category = "Design";
+        else if (sLower.includes("database") || sLower.includes("sql") || sLower.includes("query") || sLower.includes("index")) category = "Database";
+        else if (sLower.includes("security") || sLower.includes("auth") || sLower.includes("token")) category = "Security";
+        else if (sLower.includes("review") || sLower.includes("pr") || sLower.includes("pull request")) category = "Review";
+        else if (sLower.includes("customer") || sLower.includes("client")) category = "Customer Success";
+
+        actionItems.push({
+          id: `t-${taskIndex++}`,
+          text: foundTask.length > 70 ? foundTask.slice(0, 68) + "…" : foundTask,
+          assignee: foundAssignee || speaker,
+          assignedBy: assignedBy,
+          due,
+          priority,
+          category,
+          completed: false,
+        });
+
+        decisions.push(`${assignedBy} assigned ${foundAssignee}: "${foundTask.length > 45 ? foundTask.slice(0, 43) + "…" : foundTask}"`);
+      }
     }
-  });
-
-  if (decisions.length === 0) {
-    decisions.push("Agreed to prioritize key sprint deliverables and maintain active cross-functional alignment.");
   }
 
-  const tldr = `Meeting discussion between ${
-    speakersList.length > 0 ? speakersList.join(", ") : "team participants"
-  }. The team reviewed project commitments, confirmed execution timelines, and distributed key deliverables.`;
+  if (actionItems.length === 0) {
+    actionItems.push({
+      id: "t-1",
+      text: "Review discussion takeaways and align team on next milestones",
+      assignee: primarySpeaker,
+      assignedBy: primarySpeaker,
+      due: "Before Friday",
+      priority: "High",
+      category: "Operations",
+      completed: false,
+    });
+  }
+
+  if (decisions.length === 0) {
+    decisions.push("Team confirmed execution roadmap and agreed on deliverables.");
+  }
+
+  // Speaker metrics:
+  // If ONLY 1 person in the meeting, return 1 speaker with 100% talk-time!
+  const isSingle = speakersList.length === 1;
+  const speakerStats = speakersList.map((name, i) => ({
+    name,
+    talkTimeSecs: isSingle ? 450 : Math.round(450 / speakersList.length),
+    percentage: isSingle ? 100 : Math.round(100 / speakersList.length),
+    wordsPerMinute: 142,
+    sentimentScore: 92,
+    color: ["#2563EB", "#06B6D4", "#10B981", "#8B5CF6"][i % 4],
+  }));
+
+  // Dynamic Executive TL;DR
+  const assignedList = actionItems.slice(0, 3).map((a) => `${a.assignee} is assigned to ${a.text.toLowerCase()}`).join(", ");
+  const tldr = isSingle
+    ? `${primarySpeaker} led the session and outlined deliverables for the team. Specifically, ${assignedList || "core priorities were reviewed and confirmed"}.`
+    : `Meeting convened between ${speakersList.join(", ")}. The participants aligned on commitments and assigned key responsibilities: ${assignedList || "deliverables were allocated across owners"}.`;
 
   return {
     summary: {
       tldr,
-      keyPoints: keyPoints.length > 0 ? keyPoints.slice(0, 5) : ["Reviewed operational priorities and assigned responsibilities."],
+      keyPoints: keyPoints.slice(0, 5),
       decisions: decisions.slice(0, 4),
     },
-    sentimentScore: 89,
-    engagementScore: 91,
+    sentimentScore: 92,
+    engagementScore: 89,
     chapters: [
       {
         id: "c1",
         timestamp: "00:00",
         startSec: 0,
-        title: "Session Discussion",
-        summary: "Reviewed priorities and assigned action items.",
+        title: "Session Briefing & Deliverable Allocation",
+        summary: "Discussion and delegation of sprint commitments.",
       },
     ],
-    actionItems:
-      actionItems.length > 0
-        ? actionItems
-        : [
-            {
-              id: "act-1",
-              text: "Follow up on discussed action items",
-              assignee: primarySpeaker,
-              assignedBy: "Team",
-              due: "This Friday",
-              priority: "High",
-              category: "General",
-              completed: false,
-            },
-          ],
-    speakers: speakersList.map((name, i) => ({
-      name,
-      talkTimeSecs: 300,
-      percentage: Math.round(100 / Math.max(1, speakersList.length)),
-      wordsPerMinute: 140,
-      sentimentScore: 90,
-      color: ["#2563EB", "#06B6D4", "#10B981", "#8B5CF6"][i % 4],
-    })),
+    actionItems,
+    speakers: speakerStats,
   };
 }
