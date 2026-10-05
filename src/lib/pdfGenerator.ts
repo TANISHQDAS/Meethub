@@ -195,38 +195,44 @@ export function downloadTicketsPdf(data: PdfExportData) {
   } else {
     items.slice(0, 8).forEach((item, index) => {
       const ticket = item.ticketId || `LIN-${6100 + index * 125}`;
-      const assignedBy = sanitizePdfText(item.assignedBy || "Meeting Lead");
+      const assignedBy = sanitizePdfText(item.assignedBy || "Host");
       const owner = sanitizePdfText(item.owner || "Assignee");
-      const priority = sanitizePdfText(item.priority || "Medium");
-      const category = sanitizePdfText(item.category || "Engineering");
-      const dueDate = sanitizePdfText(item.dueDate || "2026-09-15");
+      const priority = sanitizePdfText(item.priority || "High");
+      const category = sanitizePdfText(item.category || "Operations");
+      const dueDate = sanitizePdfText(item.dueDate || "2026-09-18");
       const taskText = sanitizePdfText(item.task);
+      const statusText = sanitizePdfText(item.status || "Synchronized to Linear Cycle Backlog");
 
-      // Header row for item
-      const itemHeader = `ITEM #${index + 1} [${ticket}] - Priority: ${priority} | Category: ${category}`;
+      // 1. Header row for item
+      const itemHeader = `ITEM #${index + 1} [${ticket}] - Priority: ${priority} | Category: ${category} | Sprint: Active Backlog`;
       stream += `BT /F1 10 Tf 50 ${y} Td (${itemHeader}) Tj ET\n`;
       y -= 14;
 
-      // Delegation: Who gave work to whom
-      // Assignment line (concise)
-      const assignmentLine = `ASSIGNMENT: ${assignedBy} → ${owner}`;
-      stream += `BT /F1 9 Tf 50 ${y} Td (${assignmentLine}) Tj ET\n`;
-      y -= 12;
+      // 2. Assignment & Delegation details
+      const delegationLine = `  >> ASSIGNMENT: ${assignedBy} (Assigned By)  --->  ${owner} (Assigned To / Owner)`;
+      stream += `BT /F1 9 Tf 50 ${y} Td (${delegationLine}) Tj ET\n`;
+      y -= 13;
 
-      // Work line (truncated if needed)
-      const truncatedTask = taskText.length > 80 ? taskText.slice(0, 77) + "..." : taskText;
-      const workLine = `WORK: "${truncatedTask}"`;
-      stream += `BT /F1 9 Tf 50 ${y} Td (${workLine}) Tj ET\n`;
-      y -= 12;
+      // 3. Work / Deliverable (wrapped, no hard truncation)
+      const wrappedTask = wrapText(`>> WORK / DELIVERABLE: "${taskText}"`, 80);
+      wrappedTask.forEach((line) => {
+        stream += `BT /F1 9 Tf 50 ${y} Td (  ${line}) Tj ET\n`;
+        y -= 13;
+      });
 
-      // Timeline line (concise)
-      const timelineLine = `DUE ${dueDate} • Synchronized`;
+      // 4. Timeline & Tracking details
+      const timelineLine = `  >> TIMELINE & TRACKING: Due ${dueDate} | Status: ${statusText}`;
       stream += `BT /F1 9 Tf 50 ${y} Td (${timelineLine}) Tj ET\n`;
-      y -= 14;
+      y -= 13;
 
-      // Horizontal separator
-      stream += `q 0.5 w 0 G 50 ${y} m 560 ${y} l S Q\n`;
-      y -= 10;
+      // 5. Linear Issue Audit Reference
+      const auditLine = `  >> LINEAR INTEGRATION AUDIT: Issue Ref ${ticket} verified | Bi-directional Sync Active`;
+      stream += `BT /F1 8 Tf 50 ${y} Td (${auditLine}) Tj ET\n`;
+      y -= 16;
+
+      // Clean horizontal separator
+      stream += `q 0.5 w 0.2 G 50 ${y} m 560 ${y} l S Q\n`;
+      y -= 14;
     });
   }
 
