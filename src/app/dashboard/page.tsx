@@ -146,7 +146,7 @@ export default function DashboardPage() {
         engagementScore: aiData.engagementScore || 92,
         summary: aiData.summary,
         chapters: aiData.chapters || [],
-        actionItems: aiData.actionItems || [],
+        actionItems: (aiData.actionItems || []).slice(0, 2),
         speakers: aiData.speakers || [],
         transcript: transcriptData.utterances || [],
       };

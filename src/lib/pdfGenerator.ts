@@ -206,20 +206,25 @@ export function downloadTicketsPdf(data: PdfExportData) {
       y -= 14;
 
       // Delegation: Who gave work to whom
-      const delegationLine = `  >> ASSIGNMENT: ${assignedBy} (Assigned By)  --->  ${owner} (Assigned To / Owner)`;
-      stream += `BT /F1 9 Tf 50 ${y} Td (${delegationLine}) Tj ET\n`;
-      y -= 13;
+      // Assignment line (concise)
+      const assignmentLine = `ASSIGNMENT: ${assignedBy} → ${owner}`;
+      stream += `BT /F1 9 Tf 50 ${y} Td (${assignmentLine}) Tj ET\n`;
+      y -= 12;
 
-      // What work
-      const truncatedTask = taskText.length > 85 ? taskText.slice(0, 82) + "..." : taskText;
-      const workLine = `  >> WORK / DELIVERABLE: "${truncatedTask}"`;
+      // Work line (truncated if needed)
+      const truncatedTask = taskText.length > 80 ? taskText.slice(0, 77) + "..." : taskText;
+      const workLine = `WORK: "${truncatedTask}"`;
       stream += `BT /F1 9 Tf 50 ${y} Td (${workLine}) Tj ET\n`;
-      y -= 13;
+      y -= 12;
 
-      // Timeline & status
-      const statusLine = `  >> TIMELINE & TRACKING: Due ${dueDate} | Status: Synchronized to Linear Cycle Backlog`;
-      stream += `BT /F1 9 Tf 50 ${y} Td (${statusLine}) Tj ET\n`;
-      y -= 18;
+      // Timeline line (concise)
+      const timelineLine = `DUE ${dueDate} • Synchronized`;
+      stream += `BT /F1 9 Tf 50 ${y} Td (${timelineLine}) Tj ET\n`;
+      y -= 14;
+
+      // Horizontal separator
+      stream += `q 0.5 w 0 G 50 ${y} m 560 ${y} l S Q\n`;
+      y -= 10;
     });
   }
 
