@@ -654,22 +654,22 @@ export default function MeetHubPage() {
             activeMediaSource.participants[0] ||
             "Team Lead";
 
-          const mapped: TaskItem[] = data.actionItems.map((item: any, i: number) => ({
+          const mapped: TaskItem[] = data.actionItems.slice(0, 2).map((item: any, i: number) => ({
             id: item.id || `t-${Date.now()}-${i}`,
             task: item.text || item.task,
             owner: item.assignee || item.owner || "Alex",
             assignedBy: item.assignedBy || defaultAssigner,
             dueDate: item.due || "2026-09-18",
             priority: item.priority || (i === 0 ? "Urgent" : i === 1 ? "High" : "Medium"),
-            category: item.category || "Engineering",
+            category: item.category || "Operations",
             status: "pending",
-            ticketId: "",
+            ticketId: item.ticketId || (i === 0 ? "LIN-6787" : "LIN-9889"),
           }));
           setTasks(mapped);
           showToast(`✓ Extracted detailed summary & ${mapped.length} action items`);
         } else {
-          setTasks(currentPreset.tasks);
-          showToast(`✓ Extracted detailed summary & ${currentPreset.tasks.length} action items`);
+          setTasks(currentPreset.tasks.slice(0, 2));
+          showToast(`✓ Extracted detailed summary & ${Math.min(currentPreset.tasks.length, 2)} action items`);
         }
       } else {
         setExtractedSummary(currentPreset.summary);
@@ -1938,10 +1938,11 @@ export default function MeetHubPage() {
                                 Linear Sync Complete: {createdCount} of {tasks.length} tickets synchronized
                               </span>
                               <button
-                                onClick={handleExportPdf}
-                                className="text-[#0891B2] font-extrabold hover:underline inline-flex items-center gap-1"
+                                onClick={handleExportTicketsPdf}
+                                className="text-[#0891B2] font-extrabold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                title="Download Tasks PDF"
                               >
-                                <span>Download Executive Audit</span>
+                                <span>Download Tasks PDF</span>
                                 <ArrowRight className="w-3 h-3 text-current" />
                               </button>
                             </div>

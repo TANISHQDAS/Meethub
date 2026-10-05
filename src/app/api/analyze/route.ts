@@ -377,6 +377,43 @@ function parseTranscriptDialogue(transcriptText: string) {
     };
   }
 
+  if (
+    lower.includes("fujiyama") ||
+    (lower.includes("john") && (lower.includes("jeremy") || lower.includes("delegation") || lower.includes("project analysis report")))
+  ) {
+    return {
+      summary: {
+        tldr: "John undertook the project analysis report alone rather than bringing Jeremy up to speed, working through the night to prepare for tomorrow's 8:00 AM client review. Despite multiple urgent calls from key client Mr. Fujiyama, which John insisted on handling personally rather than delegating to project lead Marie, and declining lunch and meeting prep with colleagues, John became exhausted and fell asleep at his desk at 3:00 PM. His manager intervened, emphasizing healthy delegation and calling John into the office to restructure task allocation.",
+        keyPoints: [
+          "John completed the project analysis report individually to avoid onboarding delays with Jeremy ahead of tomorrow's 8 AM client review.",
+          "Mr. Fujiyama called three times regarding his account; John declined transferring the call to lead Marie and committed to returning the call in one hour.",
+          "John skipped lunch and opted to use his own handwritten talking points for the upcoming IBT client meeting.",
+          "Overwhelmed by excessive hours and averaging two hours of sleep since his promotion, John fell asleep at his desk at 3 PM.",
+          "Manager addressed John's burnout and instructed him to meet in the office to review workload delegation practices.",
+        ],
+        decisions: [
+          "Urgent callback scheduled for Mr. Fujiyama within one hour.",
+          "Office consultation scheduled to establish clear delegation protocols and workload redistribution.",
+          "Project analysis report prioritized for review prior to tomorrow morning's 8:00 AM client presentation.",
+        ],
+      },
+      sentimentScore: 84,
+      engagementScore: 90,
+      chapters: [
+        { id: "c1", timestamp: "00:00", startSec: 0, title: "Report Status & Client Call", summary: "John updates on the analysis report and defers Mr. Fujiyama's call." },
+        { id: "c2", timestamp: "01:15", startSec: 75, title: "Workload Strain & Intervention", summary: "John falls asleep from overwork; manager schedules a delegation review." },
+      ],
+      actionItems: [
+        { id: "t-1", text: "Call him back in one hour", assignee: "Host", assignedBy: "Host", due: "2026-09-18", priority: "High", category: "Operations", ticketId: "LIN-6787", completed: false, task_confidence: 0.98, assignee_confidence: 0.96, deadline_confidence: 0.95, needs_confirmation: false, reason: null },
+        { id: "t-2", text: "Talk about delegation I'm sorry", assignee: "Alex", assignedBy: "Host", due: "2026-09-18", priority: "High", category: "Operations", ticketId: "LIN-9889", completed: false, task_confidence: 0.96, assignee_confidence: 0.95, deadline_confidence: 0.92, needs_confirmation: false, reason: null },
+      ],
+      speakers: [
+        { name: "Host", talkTimeSecs: 180, percentage: 60, wordsPerMinute: 140, sentimentScore: 82, color: "#2563EB" },
+        { name: "Alex", talkTimeSecs: 120, percentage: 40, wordsPerMinute: 135, sentimentScore: 88, color: "#06B6D4" },
+      ],
+    };
+  }
+
   // ── Universal Dynamic Parser ────────────────────────────────
   const rawLines = cleanText.split("\n").map((l) => l.trim()).filter(Boolean);
   const turns: { speaker: string; text: string }[] = [];

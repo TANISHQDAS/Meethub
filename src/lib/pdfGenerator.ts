@@ -113,9 +113,11 @@ export function downloadSummaryPdf(data: PdfExportData) {
   stream += `BT /F1 12 Tf 50 ${y} Td (1. EXECUTIVE TL;DR) Tj ET\n`;
   y -= 17;
   const tldrLines = wrapText(summary, 90);
-  tldrLines.slice(0, 5).forEach((line) => {
-    stream += `BT /F1 9 Tf 50 ${y} Td (${line}) Tj ET\n`;
-    y -= 13;
+  tldrLines.forEach((line) => {
+    if (y > 220) {
+      stream += `BT /F1 9 Tf 50 ${y} Td (${line}) Tj ET\n`;
+      y -= 13;
+    }
   });
   y -= 12;
 
@@ -235,7 +237,7 @@ export function downloadTicketsPdf(data: PdfExportData) {
   createPdfAndDownload(safeFilename, stream);
 }
 
-// 3. COMPLETE AUDIT PDF (Backwards compatible)
+// 3. COMPLETE AUDIT PDF (Backwards compatible - downloads task delegation matrix)
 export function downloadExecutiveAuditPdf(data: PdfExportData) {
-  downloadSummaryPdf(data);
+  downloadTicketsPdf(data);
 }
