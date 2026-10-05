@@ -410,8 +410,54 @@ function parseTranscriptDialogue(transcriptText: string) {
         { id: "c2", timestamp: "01:15", startSec: 75, title: "Workload Strain & Intervention", summary: "John falls asleep from overwork; manager schedules a delegation review." },
       ],
       actionItems: [
-        { id: "t-1", text: "Call him back in one hour", assignee: "John", assignedBy: "Teresa", due: "2026-09-18", priority: "High", category: "Operations", ticketId: "LIN-6787", completed: false, task_confidence: 0.98, assignee_confidence: 0.96, deadline_confidence: 0.95, needs_confirmation: false, reason: null },
-        { id: "t-2", text: "Talk about delegation I'm sorry", assignee: "John", assignedBy: "Manager", due: "2026-09-18", priority: "High", category: "Operations", ticketId: "LIN-9889", completed: false, task_confidence: 0.96, assignee_confidence: 0.95, deadline_confidence: 0.92, needs_confirmation: false, reason: null },
+        {
+          id: "t-1",
+          text: "Finalize project analysis report for review before client meeting",
+          assignee: "John",
+          assignedBy: "Manager",
+          due: "Today by Close of Business",
+          priority: "Urgent",
+          category: "Operations",
+          ticketId: "LIN-6787",
+          completed: false,
+          task_confidence: 0.98,
+          assignee_confidence: 0.98,
+          deadline_confidence: 0.95,
+          needs_confirmation: false,
+          reason: null,
+        },
+        {
+          id: "t-2",
+          text: "Call Mr. Fujiyama back regarding his account updates",
+          assignee: "John",
+          assignedBy: "Teresa",
+          due: "Within 1 hour",
+          priority: "High",
+          category: "Operations",
+          ticketId: "LIN-6788",
+          completed: false,
+          task_confidence: 0.98,
+          assignee_confidence: 0.97,
+          deadline_confidence: 0.96,
+          needs_confirmation: false,
+          reason: null,
+        },
+        {
+          id: "t-3",
+          text: "Meet in office to review task delegation and workload distribution",
+          assignee: "John",
+          assignedBy: "Manager",
+          due: "Today",
+          priority: "High",
+          category: "Management",
+          ticketId: "LIN-6789",
+          completed: false,
+          task_confidence: 0.96,
+          assignee_confidence: 0.96,
+          deadline_confidence: 0.92,
+          needs_confirmation: false,
+          reason: null,
+        },
       ],
       speakers: [
         { name: "John", talkTimeSecs: 155, percentage: 52, wordsPerMinute: 142, sentimentScore: 84, color: "#2563EB" },
@@ -685,6 +731,7 @@ function parseTranscriptDialogue(transcriptText: string) {
       // ── Minimum task length ────────────────────────────────
       if (!foundTask || foundTask.length <= 10) continue;
 
+      foundTask = foundTask.replace(/\s+(?:i'm sorry|sorry|please|thank you|thanks|okay|ok)$/i, "").trim();
       foundTask = foundTask.replace(/^(to\s+|please\s+)/i, "").trim();
       foundTask = foundTask.charAt(0).toUpperCase() + foundTask.slice(1);
 
@@ -695,7 +742,7 @@ function parseTranscriptDialogue(transcriptText: string) {
 
       const cleanAssignee = foundAssignee
         ? foundAssignee.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
-        : null;
+        : (speakersList.find((s) => s !== assignedBy) || primarySpeaker);
 
       // ── Deadline extraction (Rule 13) ─────────────────────
       let due: string | null = null;

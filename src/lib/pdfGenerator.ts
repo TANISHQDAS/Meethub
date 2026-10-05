@@ -196,9 +196,13 @@ export function downloadTicketsPdf(data: PdfExportData) {
     items.slice(0, 8).forEach((item, index) => {
       const ticket = item.ticketId || `LIN-${6100 + index * 125}`;
       let assignedBy = sanitizePdfText(item.assignedBy || (index === 0 ? "Teresa" : "Manager"));
-      if (assignedBy.toLowerCase() === "host") assignedBy = index === 0 ? "Teresa" : "Manager";
+      if (assignedBy.toLowerCase() === "host" || assignedBy.toLowerCase() === "alex") {
+        assignedBy = index === 0 ? "Teresa" : "Manager";
+      }
       let owner = sanitizePdfText(item.owner || "John");
-      if (owner.toLowerCase() === "host") owner = "John";
+      if (owner.toLowerCase() === "host" || owner.toLowerCase() === "alex") {
+        owner = "John";
+      }
       const priority = sanitizePdfText(item.priority || "High");
       const category = sanitizePdfText(item.category || "Operations");
       const dueDate = sanitizePdfText(item.dueDate || "2026-09-18");

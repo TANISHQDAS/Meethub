@@ -674,26 +674,44 @@ export default function MeetHubPage() {
         // 3. Set extracted action items
         if (data.actionItems && data.actionItems.length > 0) {
           const defaultAssigner =
+            (data.speakers && data.speakers.length > 1 ? data.speakers[1].name : null) ||
             (data.speakers && data.speakers.length > 0 ? data.speakers[0].name : null) ||
             activeMediaSource.participants[0] ||
             "Team Lead";
 
-          const mapped: TaskItem[] = data.actionItems.slice(0, 2).map((item: any, i: number) => ({
-            id: item.id || `t-${Date.now()}-${i}`,
-            task: item.text || item.task,
-            owner: item.assignee || item.owner || "Alex",
-            assignedBy: item.assignedBy || defaultAssigner,
-            dueDate: item.due || "2026-09-18",
-            priority: item.priority || (i === 0 ? "Urgent" : i === 1 ? "High" : "Medium"),
-            category: item.category || "Operations",
-            status: "pending",
-            ticketId: item.ticketId || (i === 0 ? "LIN-6787" : "LIN-9889"),
-          }));
+          const primaryAssignee =
+            (data.speakers && data.speakers.length > 0 ? data.speakers[0].name : null) ||
+            activeMediaSource.participants[0] ||
+            "Assignee";
+
+          const mapped: TaskItem[] = data.actionItems.map((item: any, i: number) => {
+            let itemOwner = item.assignee || item.owner;
+            if (!itemOwner || itemOwner.toLowerCase() === "host" || itemOwner.toLowerCase() === "alex") {
+              itemOwner = primaryAssignee;
+            }
+
+            let itemAssignedBy = item.assignedBy;
+            if (!itemAssignedBy || itemAssignedBy.toLowerCase() === "host") {
+              itemAssignedBy = defaultAssigner;
+            }
+
+            return {
+              id: item.id || `t-${Date.now()}-${i}`,
+              task: item.text || item.task,
+              owner: itemOwner,
+              assignedBy: itemAssignedBy,
+              dueDate: item.due || "2026-09-18",
+              priority: item.priority || (i === 0 ? "Urgent" : i === 1 ? "High" : "Medium"),
+              category: item.category || "Operations",
+              status: "pending",
+              ticketId: item.ticketId || (i === 0 ? "LIN-6787" : `LIN-${6800 + i * 115}`),
+            };
+          });
           setTasks(mapped);
           showToast(`✓ Extracted detailed summary & ${mapped.length} action items`);
         } else {
-          setTasks(currentPreset.tasks.slice(0, 2));
-          showToast(`✓ Extracted detailed summary & ${Math.min(currentPreset.tasks.length, 2)} action items`);
+          setTasks(currentPreset.tasks);
+          showToast(`✓ Extracted detailed summary & ${currentPreset.tasks.length} action items`);
         }
       } else {
         setExtractedSummary(currentPreset.summary);
