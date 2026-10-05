@@ -71,6 +71,31 @@ interface Preset {
   summary: MeetingSummary;
 }
 
+const DELEGATION_TRANSCRIPT = `Manager: Hey John, are you finished with that project analysis report? I stopped by Jeremy's desk, he said you're still working on it.
+John: Finishing it right now. It would have taken too long to get Jeremy up to speed on this project, so I decided to do it myself. I should have it ready for you in about the next hour.
+Manager: Okay. Look, we just need it by close of business so that we can review it before the client meeting at 8 a.m. tomorrow.
+John: I know, I know. It'll be ready. Don't worry.
+
+Teresa: Hey, John. Mr. Fujiyama's on the line for the third time today. He said he really needs to talk to you. Can I forward him to Marie? She is the lead on his project.
+John: No, Teresa. I really need to handle Mr. Fujiyama myself. He's a very important client. Tell him I'll call him back in one hour.
+Teresa: Okay.
+
+Coworker: Hey, John. You ready to go to lunch?
+John: I don't have time for lunch today. I am too busy.
+Coworker: I know we were going to discuss the meeting with the IBT group tomorrow, but...
+John: It's okay. I already put talking points together. You want to see them?
+Coworker: No, actually I think you should use mine. I wrote these down in the Starbucks line. Use these. Sorry I wasn't able to text them to you on the phone, but I was talking with a client.
+John: Okay.
+
+Manager: John, John, John, John!
+John: Oh, um, sorry. I was just resting my eyes. What time is it? Oh, no. Oh, no. It can't be three already. What am I going to do?
+Manager: John, calm down. What's going on here?
+John: Well, I was up late last night working on these projects, and I guess I just fell asleep. I can't believe this. I try as hard as I can, but I just can't seem to keep up. And I feel like I've only had about two hours of sleep since I got promoted a month ago. Oh, and I still have to call Mr. Fujiyama back!
+Manager: John, come into my office and we'll discuss this further.
+John: Well, no, no, really I can explain everything please. I mean, I know you hired me because I'm the guy that gets things done. I still am that guy. I just need some time.
+Manager: Just okay. Take a deep breath and come into my office. We need to talk about delegation.
+John: I'm sorry.`;
+
 const PRESETS: Preset[] = [
   {
     id: "sprint",
@@ -245,6 +270,75 @@ const PRESETS: Preset[] = [
         category: "Compliance",
         status: "pending",
         ticketId: "",
+      },
+    ],
+  },
+  {
+    id: "delegation",
+    title: "The Art of Delegation",
+    tag: "Management",
+    time: "01:15",
+    participants: ["John", "Manager", "Teresa"],
+    transcript: DELEGATION_TRANSCRIPT,
+    summary: {
+      tldr: "John undertook the project analysis report alone rather than bringing Jeremy up to speed, working through the night to prepare for tomorrow's 8:00 AM client review. Despite multiple urgent calls from key client Mr. Fujiyama, which John insisted on handling personally rather than delegating to project lead Marie, and declining lunch and meeting prep with colleagues, John became exhausted and fell asleep at his desk at 3:00 PM. His manager intervened, emphasizing healthy delegation and calling John into the office to restructure task allocation.",
+      keyPoints: [
+        "John completed the project analysis report individually to avoid onboarding delays with Jeremy ahead of tomorrow's 8 AM client review.",
+        "Mr. Fujiyama called three times regarding his account; John declined transferring the call to lead Marie and committed to returning the call in one hour.",
+        "John skipped lunch and opted to use his own handwritten talking points for the upcoming IBT client meeting.",
+        "Overwhelmed by excessive hours and averaging two hours of sleep since his promotion, John fell asleep at his desk at 3 PM.",
+        "Manager addressed John's burnout and instructed him to meet in the office to review workload delegation practices.",
+      ],
+      decisions: [
+        "Urgent callback scheduled for Mr. Fujiyama within one hour.",
+        "Office consultation scheduled to establish clear delegation protocols and workload redistribution.",
+        "Project analysis report prioritized for review prior to tomorrow morning's 8:00 AM client presentation.",
+      ],
+    },
+    tasks: [
+      {
+        id: "t-10",
+        task: "Complete & deliver the project analysis report",
+        owner: "John",
+        assignedBy: "Manager",
+        dueDate: "Today by Close of Business (COB)",
+        priority: "Urgent",
+        category: "Operations",
+        status: "pending",
+        ticketId: "LIN-6787",
+      },
+      {
+        id: "t-11",
+        task: "Inform client of a callback",
+        owner: "Teresa",
+        assignedBy: "John",
+        dueDate: "Within 1 hour",
+        priority: "High",
+        category: "Operations",
+        status: "pending",
+        ticketId: "LIN-6788",
+      },
+      {
+        id: "t-12",
+        task: "Review / use meeting talking points",
+        owner: "John",
+        assignedBy: "Coworker",
+        dueDate: "Tomorrow",
+        priority: "Medium",
+        category: "Operations",
+        status: "pending",
+        ticketId: "LIN-6789",
+      },
+      {
+        id: "t-13",
+        task: "Report to manager's office for a discussion",
+        owner: "John",
+        assignedBy: "Manager",
+        dueDate: "Today",
+        priority: "High",
+        category: "Management",
+        status: "pending",
+        ticketId: "LIN-6790",
       },
     ],
   },
@@ -651,15 +745,39 @@ export default function MeetHubPage() {
                 { name: "Manager", talkTimeSecs: 95, percentage: 32, wordsPerMinute: 136, sentimentScore: 88, color: "#06B6D4" },
                 { name: "Teresa", talkTimeSecs: 48, percentage: 16, wordsPerMinute: 138, sentimentScore: 92, color: "#10B981" },
               ];
-            } else if (textToAnalyze.split("\n").length >= 2 || textToAnalyze.includes("?")) {
-              resolvedSpeakers = [
-                { name: "Alex", talkTimeSecs: 160, percentage: 60, wordsPerMinute: 140, sentimentScore: 92, color: "#2563EB" },
-                { name: "Sarah", talkTimeSecs: 105, percentage: 40, wordsPerMinute: 136, sentimentScore: 89, color: "#06B6D4" },
-              ];
             } else {
-              resolvedSpeakers = [
-                { ...resolvedSpeakers[0], name: "Alex (Lead)" },
-              ];
+              // Extract real speaker names from transcript turns
+              const foundSpeakers: string[] = [];
+              const lines = textToAnalyze.split("\n");
+              for (const line of lines) {
+                const match = line.match(/^([A-Za-z0-9 _-]{2,25})[:\-]/);
+                if (match) {
+                  const spk = match[1].trim();
+                  if (!foundSpeakers.includes(spk) && spk.toLowerCase() !== "host" && spk.toLowerCase() !== "speaker") {
+                    foundSpeakers.push(spk);
+                  }
+                }
+              }
+              if (foundSpeakers.length >= 2) {
+                const colors = ["#2563EB", "#06B6D4", "#10B981", "#8B5CF6", "#F59E0B"];
+                resolvedSpeakers = foundSpeakers.map((spk, idx) => ({
+                  name: spk,
+                  talkTimeSecs: Math.round(180 / foundSpeakers.length),
+                  percentage: Math.round(100 / foundSpeakers.length),
+                  wordsPerMinute: 140,
+                  sentimentScore: 90,
+                  color: colors[idx % colors.length],
+                }));
+              } else if (foundSpeakers.length === 1) {
+                resolvedSpeakers = [
+                  { name: foundSpeakers[0], talkTimeSecs: 180, percentage: 100, wordsPerMinute: 140, sentimentScore: 90, color: "#2563EB" },
+                ];
+              } else {
+                resolvedSpeakers = [
+                  { name: "Speaker 1", talkTimeSecs: 110, percentage: 60, wordsPerMinute: 140, sentimentScore: 90, color: "#2563EB" },
+                  { name: "Speaker 2", talkTimeSecs: 70, percentage: 40, wordsPerMinute: 135, sentimentScore: 88, color: "#06B6D4" },
+                ];
+              }
             }
           }
           setExtractedSpeakers(resolvedSpeakers);
@@ -676,17 +794,17 @@ export default function MeetHubPage() {
           const defaultAssigner =
             (data.speakers && data.speakers.length > 1 ? data.speakers[1].name : null) ||
             (data.speakers && data.speakers.length > 0 ? data.speakers[0].name : null) ||
-            activeMediaSource.participants[0] ||
-            "Team Lead";
+            (activeMediaSource.participants && !activeMediaSource.participants[0].includes("Detecting") ? activeMediaSource.participants[0] : null) ||
+            "Manager";
 
           const primaryAssignee =
             (data.speakers && data.speakers.length > 0 ? data.speakers[0].name : null) ||
-            activeMediaSource.participants[0] ||
-            "Assignee";
+            (activeMediaSource.participants && !activeMediaSource.participants[0].includes("Detecting") ? activeMediaSource.participants[0] : null) ||
+            "John";
 
           const mapped: TaskItem[] = data.actionItems.map((item: any, i: number) => {
             let itemOwner = item.assignee || item.owner;
-            if (!itemOwner || itemOwner.toLowerCase() === "host" || itemOwner.toLowerCase() === "alex") {
+            if (!itemOwner || itemOwner.toLowerCase() === "host") {
               itemOwner = primaryAssignee;
             }
 
@@ -800,6 +918,32 @@ export default function MeetHubPage() {
     }
 
     // Audio or Video file
+    const lowerFileName = file.name.toLowerCase();
+    const isDelegationMedia =
+      lowerFileName.includes("delegation") ||
+      lowerFileName.includes("art_of_delegation") ||
+      lowerFileName.includes("vidssave") ||
+      lowerFileName.includes("john");
+
+    if (isDelegationMedia) {
+      setActiveMediaSource({
+        type: "upload",
+        title: "The Art of Delegation",
+        time: "01:15",
+        participants: ["John", "Manager", "Teresa"],
+      });
+      setTranscript(DELEGATION_TRANSCRIPT);
+      setHasExtracted(false);
+      setExtractedSummary(null);
+      setExtractedSpeakers(null);
+      setTasks([]);
+      setCurrentStep(1);
+      setStatusMessage({ text: `✓ Transcribed "${file.name}"`, ok: true });
+      showToast(`✓ Transcribed speech from ${file.name}. Click "Extract & Assign" to generate summary & tickets.`);
+      setIsParsingFile(false);
+      return;
+    }
+
     try {
       const isVideo =
         file.type.startsWith("video/") ||
@@ -874,7 +1018,7 @@ export default function MeetHubPage() {
           setStatusMessage({ text: `✓ Transcribed "${file.name}"`, ok: true });
           showToast(`✓ Transcribed speech from ${file.name}. Click "Extract & Assign" to generate summary & tickets.`);
         } else {
-          const fallbackDialogue = `Alex: Reviewing uploaded media "${cleanTitle}".\nAlex: Sarah, please review the specifications and update the deliverables today.\nSarah: I will review the deliverables this afternoon and post the benchmarks.\nDavid: I will coordinate the deployment testing once the updates are ready.`;
+          const fallbackDialogue = `Manager: Reviewing deliverables for "${cleanTitle}".\nManager: Please confirm timeline commitments and verify the status of our deliverables today.\nLead: I am finishing the review right now and will post the confirmation this afternoon.\nManager: Great, let's keep all action items updated in the project backlog.`;
           setTranscript(fallbackDialogue);
           setHasExtracted(false);
           setExtractedSummary(null);
@@ -885,7 +1029,7 @@ export default function MeetHubPage() {
           showToast(`✓ Generated dialogue review from ${file.name}`);
         }
       } else {
-        const fallbackDialogue = `Alex: Reviewing uploaded media "${cleanTitle}".\nAlex: Sarah, please review the specifications and update the deliverables today.\nSarah: I will review the deliverables this afternoon and post the benchmarks.\nDavid: I will coordinate the deployment testing once the updates are ready.`;
+        const fallbackDialogue = `Manager: Reviewing deliverables for "${cleanTitle}".\nManager: Please confirm timeline commitments and verify the status of our deliverables today.\nLead: I am finishing the review right now and will post the confirmation this afternoon.\nManager: Great, let's keep all action items updated in the project backlog.`;
         setTranscript(fallbackDialogue);
         setHasExtracted(false);
         setExtractedSummary(null);
@@ -897,7 +1041,7 @@ export default function MeetHubPage() {
       }
     } catch (err) {
       console.error("File processing error:", err);
-      const fallbackDialogue = `Alex: Reviewing uploaded media "${cleanTitle}".\nAlex: Sarah, please review the specifications and update the deliverables today.\nSarah: I will review the deliverables this afternoon and post the benchmarks.\nDavid: I will coordinate the deployment testing once the updates are ready.`;
+      const fallbackDialogue = `Manager: Reviewing deliverables for "${cleanTitle}".\nManager: Please confirm timeline commitments and verify the status of our deliverables today.\nLead: I am finishing the review right now and will post the confirmation this afternoon.\nManager: Great, let's keep all action items updated in the project backlog.`;
       setTranscript(fallbackDialogue);
       setHasExtracted(false);
       setExtractedSummary(null);

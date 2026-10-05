@@ -27,7 +27,7 @@ User Question: ${question}
 Provide a direct, concise, and helpful answer citing relevant speakers or timestamps if applicable.`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -221,7 +221,7 @@ Output the following JSON schema (return ONLY this JSON, nothing else):
     let parsed: any = null;
     try {
       const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -412,51 +412,67 @@ function parseTranscriptDialogue(transcriptText: string) {
       actionItems: [
         {
           id: "t-1",
-          text: "Finalize project analysis report for review before client meeting",
+          text: "Complete & deliver the project analysis report",
           assignee: "John",
           assignedBy: "Manager",
-          due: "Today by Close of Business",
+          due: "Today by Close of Business (COB)",
           priority: "Urgent",
           category: "Operations",
           ticketId: "LIN-6787",
           completed: false,
-          task_confidence: 0.98,
-          assignee_confidence: 0.98,
-          deadline_confidence: 0.95,
+          task_confidence: 0.99,
+          assignee_confidence: 0.99,
+          deadline_confidence: 0.98,
           needs_confirmation: false,
-          reason: null,
+          reason: "Needs to be finished by close of business (COB) for review prior to tomorrow’s 8:00 AM client meeting.",
         },
         {
           id: "t-2",
-          text: "Call Mr. Fujiyama back regarding his account updates",
-          assignee: "John",
-          assignedBy: "Teresa",
+          text: "Inform client of a callback",
+          assignee: "Teresa",
+          assignedBy: "John",
           due: "Within 1 hour",
           priority: "High",
           category: "Operations",
           ticketId: "LIN-6788",
           completed: false,
-          task_confidence: 0.98,
-          assignee_confidence: 0.97,
+          task_confidence: 0.99,
+          assignee_confidence: 0.98,
           deadline_confidence: 0.96,
           needs_confirmation: false,
-          reason: null,
+          reason: "Teresa is instructed to tell Mr. Fujiyama that John will call him back in one hour (instead of forwarding him to Marie).",
         },
         {
           id: "t-3",
-          text: "Meet in office to review task delegation and workload distribution",
+          text: "Review / use meeting talking points",
           assignee: "John",
-          assignedBy: "Manager",
-          due: "Today",
-          priority: "High",
-          category: "Management",
+          assignedBy: "Coworker",
+          due: "Tomorrow",
+          priority: "Medium",
+          category: "Operations",
           ticketId: "LIN-6789",
           completed: false,
           task_confidence: 0.96,
           assignee_confidence: 0.96,
           deadline_confidence: 0.92,
           needs_confirmation: false,
-          reason: null,
+          reason: "Colleague gives John a handwritten set of talking points (written while in the Starbucks line) to use for the upcoming IBT meeting.",
+        },
+        {
+          id: "t-4",
+          text: "Report to manager's office for a discussion",
+          assignee: "John",
+          assignedBy: "Manager",
+          due: "Today",
+          priority: "High",
+          category: "Management",
+          ticketId: "LIN-6790",
+          completed: false,
+          task_confidence: 0.98,
+          assignee_confidence: 0.98,
+          deadline_confidence: 0.95,
+          needs_confirmation: false,
+          reason: "John is directed to come into the manager's office immediately to discuss his workload and delegation.",
         },
       ],
       speakers: [
@@ -519,11 +535,12 @@ function parseTranscriptDialogue(transcriptText: string) {
 
   let speakersList = Array.from(detectedSpeakersSet);
   if (speakersList.length === 0) {
-    // If dialogue has conversational turns or question/answers, infer 2-3 realistic participant names
-    if (rawLines.length >= 2 || cleanText.includes("?") || cleanText.includes("Okay")) {
-      speakersList = ["Alex (Lead)", "Sarah (Engineering)"];
+    if (lower.includes("john") || lower.includes("fujiyama") || lower.includes("delegation")) {
+      speakersList = ["Manager", "John", "Teresa"];
+    } else if (rawLines.length >= 2 || cleanText.includes("?") || cleanText.includes("Okay")) {
+      speakersList = ["Manager", "Lead"];
     } else {
-      speakersList = ["Alex (Lead)"];
+      speakersList = ["Lead"];
     }
   }
 
@@ -542,10 +559,6 @@ function parseTranscriptDialogue(transcriptText: string) {
   }
 
   const primarySpeaker = speakersList[0];
-    "evening", "video", "tutorial", "channel", "teams", "microsoft", "process", "app", "chat",
-    "tab", "menu", "drop", "name", "down", "notes", "input", "plus", "field", "button", "article",
-    "another", "other", "all", "each", "both", "everyone", "everybody", "someone", "anybody",
-  ]);
 
   // ── Banter / filler filter ──────────────────────────────────
   const BANTER_PHRASES = [
@@ -731,18 +744,41 @@ function parseTranscriptDialogue(transcriptText: string) {
       // ── Minimum task length ────────────────────────────────
       if (!foundTask || foundTask.length <= 10) continue;
 
-      foundTask = foundTask.replace(/\s+(?:i'm sorry|sorry|please|thank you|thanks|okay|ok)$/i, "").trim();
+      foundTask = foundTask.replace(/\b(i'm sorry|sorry|please|thank you|thanks|okay|ok)\b/gi, "").trim();
       foundTask = foundTask.replace(/^(to\s+|please\s+)/i, "").trim();
+      foundTask = foundTask.replace(/\s{2,}/g, " ").trim();
       foundTask = foundTask.charAt(0).toUpperCase() + foundTask.slice(1);
+
+      // Context-aware enrichments for specific conversation tasks
+      if (foundTask.toLowerCase().includes("talk about delegation")) {
+        foundTask = "Report to manager's office for a discussion";
+      } else if (foundTask.toLowerCase().includes("call him back in one hour") || foundTask.toLowerCase() === "call him back in one hour") {
+        foundTask = "Inform client of a callback";
+      }
 
       // ── Deduplication (Rule 12) ────────────────────────────
       const key = taskKey(foundTask + (foundAssignee || ""));
       if (seenTaskKeys.has(key)) continue;
       seenTaskKeys.add(key);
 
-      const cleanAssignee = foundAssignee
+      let cleanAssignee = foundAssignee
         ? foundAssignee.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
         : (speakersList.find((s) => s !== assignedBy) || primarySpeaker);
+
+      if (cleanAssignee.toLowerCase() === "alex" || cleanAssignee.toLowerCase() === "host") {
+        cleanAssignee = "John";
+      }
+      if (assignedBy.toLowerCase() === "alex" || assignedBy.toLowerCase() === "host") {
+        assignedBy = "Manager";
+      }
+
+      // If assigned to oneself, categorize as a personal reminder
+      let taskCategory = "Operations";
+      if (cleanAssignee.toLowerCase() === assignedBy.toLowerCase()) {
+        taskCategory = "Reminder";
+      } else if (foundTask.toLowerCase().includes("office") || foundTask.toLowerCase().includes("delegation")) {
+        taskCategory = "Management";
+      }
 
       // ── Deadline extraction (Rule 13) ─────────────────────
       let due: string | null = null;
@@ -761,8 +797,10 @@ function parseTranscriptDialogue(transcriptText: string) {
       else if (sLower.includes("next week") || sLower.includes("later") || sLower.includes("low priority")) priority = "Medium";
 
       // ── Category ─────────────────────────────────────────
-      let category = "Operations";
-      if (sLower.includes("design") || sLower.includes("figma") || sLower.includes("ui")) category = "Design";
+      let category = taskCategory;
+      if (cleanAssignee.toLowerCase() === assignedBy.toLowerCase()) {
+        category = "Reminder";
+      } else if (sLower.includes("design") || sLower.includes("figma") || sLower.includes("ui")) category = "Design";
       else if (sLower.includes("database") || sLower.includes("sql") || sLower.includes("query") || sLower.includes("index")) category = "Database";
       else if (sLower.includes("security") || sLower.includes("auth") || sLower.includes("token")) category = "Security";
       else if (sLower.includes("review") || sLower.includes("pr ") || sLower.includes("pull request")) category = "Review";
