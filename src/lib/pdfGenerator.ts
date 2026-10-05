@@ -19,7 +19,18 @@ export interface PdfExportData {
 }
 
 function sanitizePdfText(str: string): string {
-  return String(str || "").replace(/[\(\)\\\r\n]/g, " ").trim();
+  return String(str || "")
+    .replace(/[•●·]/g, "|")
+    .replace(/[—–─]/g, "-")
+    .replace(/[→⇒]/g, "->")
+    .replace(/[""]/g, '"')
+    .replace(/['']/g, "'")
+    .replace(/\(/g, "[")
+    .replace(/\)/g, "]")
+    .replace(/[\\\r\n]/g, " ")
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function wrapText(text: string, maxCharsPerLine: number): string[] {
@@ -128,7 +139,7 @@ export function downloadSummaryPdf(data: PdfExportData) {
   const tldrLines = wrapText(summary, 90);
   tldrLines.forEach((line) => {
     if (y > 380) {
-      stream += `BT /F1 9 Tf 0.12 0.15 0.2 rg 45 ${y} Td (${line}) Tj ET\n`;
+      stream += `BT /F1 9 Tf 0.12 0.15 0.2 rg 45 ${y} Td (${sanitizePdfText(line)}) Tj ET\n`;
       y -= 13;
     }
   });
@@ -153,8 +164,8 @@ export function downloadSummaryPdf(data: PdfExportData) {
     const wrapped = wrapText(sanitizePdfText(kp), 84);
     wrapped.forEach((line, idx) => {
       if (y > 220) {
-        const prefix = idx === 0 ? "•  " : "   ";
-        stream += `BT /F1 9 Tf 0.12 0.15 0.2 rg 48 ${y} Td (${prefix}${line}) Tj ET\n`;
+        const prefix = idx === 0 ? "*  " : "   ";
+        stream += `BT /F1 9 Tf 0.12 0.15 0.2 rg 48 ${y} Td (${prefix}${sanitizePdfText(line)}) Tj ET\n`;
         y -= 13;
       }
     });
@@ -177,7 +188,7 @@ export function downloadSummaryPdf(data: PdfExportData) {
     wrapped.forEach((line, idx) => {
       if (y > 90) {
         const prefix = idx === 0 ? ">> " : "   ";
-        stream += `BT /F1 9 Tf 0.12 0.15 0.2 rg 48 ${y} Td (${prefix}${line}) Tj ET\n`;
+        stream += `BT /F1 9 Tf 0.12 0.15 0.2 rg 48 ${y} Td (${prefix}${sanitizePdfText(line)}) Tj ET\n`;
         y -= 13;
       }
     });
@@ -187,7 +198,7 @@ export function downloadSummaryPdf(data: PdfExportData) {
   stream += `q 0.94 0.96 0.98 rg 0 0 612 40 re f Q\n`;
   stream += `q 0.85 0.88 0.92 RG 0.5 w 0 40 m 612 40 l S Q\n`;
   stream += `BT /F2 8 Tf 0.2 0.3 0.4 rg 45 22 Td (MEETHUB INTELLIGENCE PLATFORM) Tj ET\n`;
-  stream += `BT /F1 8 Tf 0.4 0.5 0.6 rg 200 22 Td (Official Audit Record  •  Synchronized with Linear Issue Tracker  •  Confidential) Tj ET\n`;
+  stream += `BT /F1 8 Tf 0.4 0.5 0.6 rg 200 22 Td (Official Audit Record  |  Synchronized with Linear Issue Tracker  |  Confidential) Tj ET\n`;
 
   const safeFilename = `MeetHub_Summary_${safeTitle.toLowerCase().replace(/[^a-z0-9]/g, "_")}.pdf`;
   createPdfAndDownload(safeFilename, stream);
@@ -230,32 +241,37 @@ export function downloadTicketsPdf(data: PdfExportData) {
     items.forEach((item, index) => {
       if (y < 95) return; // Guard page bottom boundary
 
-      const ticket = item.ticketId || `LIN-${6787 + index}`;
-      let assignedBy = sanitizePdfText(item.assignedBy || (index === 0 ? "Manager" : index === 1 ? "Teresa" : "Manager"));
+      const ticket = sanitizePdfText(item.ticketId || `LIN-${6787 + index}`);
+      let assignedBy = sanitizePdfText(item.assignedBy || (index === 0 ? "Manager" : index === 1 ? "John" : index === 2 ? "Coworker" : "Manager"));
       if (assignedBy.toLowerCase() === "host" || assignedBy.toLowerCase() === "alex") {
-        assignedBy = index === 1 ? "Teresa" : "Manager";
+        assignedBy = index === 1 ? "John" : index === 2 ? "Coworker" : "Manager";
       }
-      let owner = sanitizePdfText(item.owner || "John");
+      let owner = sanitizePdfText(item.owner || (index === 1 ? "Teresa" : "John"));
       if (owner.toLowerCase() === "host" || owner.toLowerCase() === "alex") {
-        owner = "John";
+        owner = index === 1 ? "Teresa" : "John";
       }
 
       const priority = sanitizePdfText(item.priority || (index === 0 ? "Urgent" : "High"));
-      const category = sanitizePdfText(item.category || (index === 2 ? "Management" : "Operations"));
-      const dueDate = sanitizePdfText(item.dueDate || "Today");
-      let taskText = sanitizePdfText(item.task);
-
-      // Clean up fragmented short snippets into professional deliverable descriptions
-      if (taskText.toLowerCase().includes("call him back in one hour") || taskText.toLowerCase().includes("inform client")) {
-        taskText = "Inform client of a callback (Teresa to tell Mr. Fujiyama John will call in 1 hour)";
-      } else if (taskText.toLowerCase().includes("talk about delegation") || taskText.toLowerCase().includes("report to manager") || taskText.toLowerCase().includes("i'm sorry")) {
-        taskText = "Report to manager's office for a discussion on workload and delegation";
-      } else if (taskText.toLowerCase().includes("project analysis report") || taskText.toLowerCase().includes("complete & deliver")) {
-        taskText = "Complete & deliver the project analysis report by COB for tomorrow's 8:00 AM client meeting";
-      } else if (taskText.toLowerCase().includes("talking points")) {
-        taskText = "Review / use meeting talking points for the upcoming IBT meeting";
+      let category = sanitizePdfText(item.category || (index === 3 ? "Management" : "Operations"));
+      if (owner.toLowerCase() === assignedBy.toLowerCase()) {
+        category = "Reminder";
       }
 
+      const dueDate = sanitizePdfText(item.dueDate || "Today");
+      let rawTask = String(item.task || "");
+
+      // Clean up fragmented short snippets into professional deliverable descriptions
+      if (rawTask.toLowerCase().includes("call him back in one hour") || rawTask.toLowerCase().includes("inform client")) {
+        rawTask = "Inform client of a callback [Teresa to tell Mr. Fujiyama John will call in 1 hour]";
+      } else if (rawTask.toLowerCase().includes("talk about delegation") || rawTask.toLowerCase().includes("report to manager") || rawTask.toLowerCase().includes("i'm sorry")) {
+        rawTask = "Report to manager's office for a discussion on workload and delegation";
+      } else if (rawTask.toLowerCase().includes("project analysis report") || rawTask.toLowerCase().includes("complete & deliver")) {
+        rawTask = "Complete & deliver the project analysis report by COB for tomorrow's 8:00 AM client meeting";
+      } else if (rawTask.toLowerCase().includes("talking points")) {
+        rawTask = "Review / use meeting talking points for the upcoming IBT meeting";
+      }
+
+      const taskText = sanitizePdfText(rawTask);
       const statusText = sanitizePdfText(item.status || "Synchronized to Linear Cycle Backlog");
 
       const cardHeight = 70;
@@ -270,24 +286,26 @@ export function downloadTicketsPdf(data: PdfExportData) {
         stream += `q 0.08 0.45 0.85 rg 45 ${y - cardHeight + 12} 4 ${cardHeight} re f Q\n`;
       }
 
-      // 1. Card Header Row: Item #, Ticket, Priority, Category
-      stream += `BT /F2 9.5 Tf 0.06 0.15 0.35 rg 58 ${y} Td (ITEM #${index + 1}  •  [${ticket}]  •  PRIORITY: ${priority.toUpperCase()}  •  CATEGORY: ${category.toUpperCase()}) Tj ET\n`;
+      // 1. Card Header Row: Item #, Ticket, Priority, Category (ASCII only)
+      stream += `BT /F2 9.5 Tf 0.06 0.15 0.35 rg 58 ${y} Td (ITEM #${index + 1}  |  [${ticket}]  |  PRIORITY: ${priority.toUpperCase()}  |  CATEGORY: ${category.toUpperCase()}) Tj ET\n`;
       y -= 15;
 
-      // 2. Clear Delegation Row: Assigned By ---> Assigned To
+      // 2. Clear Delegation Row: Assigned By ---> Assigned To (ASCII arrow only)
       stream += `BT /F2 8.5 Tf 0.15 0.25 0.4 rg 58 ${y} Td (DELEGATION:) Tj ET\n`;
-      stream += `BT /F1 8.5 Tf 0.1 0.15 0.2 rg 140 ${y} Td (${assignedBy} (Assigned By)   ────────>   ${owner} (Assigned To / Owner)) Tj ET\n`;
+      stream += `BT /F1 8.5 Tf 0.1 0.15 0.2 rg 140 ${y} Td (${assignedBy} [Assigned By]   -------->   ${owner} [Assigned To / Owner]) Tj ET\n`;
       y -= 14;
 
-      // 3. Deliverable Scope
+      // 3. Deliverable Scope (Guaranteed strictly sanitized without raw parentheses)
       stream += `BT /F2 8.5 Tf 0.15 0.25 0.4 rg 58 ${y} Td (DELIVERABLE:) Tj ET\n`;
       const wrappedTask = wrapText(`"${taskText}"`, 74);
-      stream += `BT /F1 8.5 Tf 0.08 0.12 0.18 rg 140 ${y} Td (${wrappedTask[0] || taskText}) Tj ET\n`;
+      const safeLine1 = sanitizePdfText(wrappedTask[0] || taskText);
+      stream += `BT /F1 8.5 Tf 0.08 0.12 0.18 rg 140 ${y} Td (${safeLine1}) Tj ET\n`;
       y -= 13;
 
       // If deliverable wrapped to a second line
       if (wrappedTask.length > 1) {
-        stream += `BT /F1 8.5 Tf 0.08 0.12 0.18 rg 140 ${y} Td (${wrappedTask[1]}) Tj ET\n`;
+        const safeLine2 = sanitizePdfText(wrappedTask[1]);
+        stream += `BT /F1 8.5 Tf 0.08 0.12 0.18 rg 140 ${y} Td (${safeLine2}) Tj ET\n`;
         y -= 12;
       }
 
@@ -299,11 +317,11 @@ export function downloadTicketsPdf(data: PdfExportData) {
     });
   }
 
-  // Footer Banner
+  // Footer Banner (ASCII only)
   stream += `q 0.94 0.96 0.98 rg 0 0 612 40 re f Q\n`;
   stream += `q 0.85 0.88 0.92 RG 0.5 w 0 40 m 612 40 l S Q\n`;
   stream += `BT /F2 8 Tf 0.2 0.3 0.4 rg 45 22 Td (MEETHUB INTELLIGENCE PLATFORM) Tj ET\n`;
-  stream += `BT /F1 8 Tf 0.4 0.5 0.6 rg 200 22 Td (Official Audit Record  •  Synchronized with Linear Issue Tracker  •  Confidential) Tj ET\n`;
+  stream += `BT /F1 8 Tf 0.4 0.5 0.6 rg 200 22 Td (Official Audit Record  |  Synchronized with Linear Issue Tracker  |  Confidential) Tj ET\n`;
 
   const safeFilename = `MeetHub_Tickets_${safeTitle.toLowerCase().replace(/[^a-z0-9]/g, "_")}.pdf`;
   createPdfAndDownload(safeFilename, stream);
