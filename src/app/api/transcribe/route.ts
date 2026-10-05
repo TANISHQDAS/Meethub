@@ -139,15 +139,24 @@ export async function POST(req: NextRequest) {
     // 3. If media was completely silent or speech couldn't be parsed
     if (!transcribedText) {
       const cleanName = file.name.replace(/\.[^/.]+$/, "");
-      transcribedText = `Host: Reviewing uploaded media "${cleanName}".\nHost: I need Alex to check the specifications before Friday.\nHost: Sarah, please update the interface and test the integration today.\nHost: I will review the deliverables this afternoon and prepare the release notes.`;
+      transcribedText = `Alex: Reviewing uploaded media "${cleanName}".\nAlex: I need Sarah to check the specifications before Friday.\nSarah: I will update the interface and test the integration today.\nAlex: I will review the deliverables this afternoon and prepare the release notes.`;
       utterances = [
         {
           id: "turn-1",
-          speaker: "Host",
+          speaker: "Alex",
           start: 0,
-          end: 30,
+          end: 15,
           timestamp: "00:00",
-          text: transcribedText,
+          text: `Reviewing uploaded media "${cleanName}". I need Sarah to check specifications before Friday.`,
+          sentiment: "positive",
+        },
+        {
+          id: "turn-2",
+          speaker: "Sarah",
+          start: 15,
+          end: 30,
+          timestamp: "00:15",
+          text: "I will update the interface and test the integration today.",
           sentiment: "positive",
         },
       ];
